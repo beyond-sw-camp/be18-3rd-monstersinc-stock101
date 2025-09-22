@@ -3,13 +3,15 @@ import MyProfilePredictionsFeed from '@/views/MyProfilePredictionsFeed.vue'
 import MyProfilePredictionsSuccess from '@/views/MyProfilePredictionsSuccess.vue'
 import UserProfilePredictions from '@/views/UserProfilePredictions.vue'
 import UserProfilePosts from '@/views/UserProfilePosts.vue'
+import Main from '@/pages/main.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      redirect: '/profile/me/predictions',
+      name: "main",
+      component: Main,
     },
     {
       path: '/profile/me/predictions',
