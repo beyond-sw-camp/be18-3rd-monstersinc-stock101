@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section class="post-composer">
     <header class="post-composer__header">
       <h2 class="post-composer__title">지금 당신의 생각을 남겨보세요</h2>
@@ -10,7 +10,7 @@
       <textarea
         ref="textareaRef"
         class="post-composer__textarea"
-        :placeholder="isLoggedIn ? '내용을 입력해 주세요.' : '로그인 후 사용해 주세요.'"
+        :placeholder="isLoggedIn ? '내용을 입력해주세요' : '로그인 후 이용해주세요'"
         :value="content"
         :maxlength="maxLength"
         :readonly="disabled || !isLoggedIn"
@@ -65,7 +65,9 @@ const opinionProxy = computed({
 
 const content = computed(() => props.content)
 
-const canSubmit = computed(() => props.isLoggedIn && !props.disabled && props.opinion && props.content.trim().length > 0)
+const canSubmit = computed(
+  () => props.isLoggedIn && !props.disabled && props.opinion && props.content.trim().length > 0
+)
 
 function handleInput(event) {
   if (!props.isLoggedIn || props.disabled) {

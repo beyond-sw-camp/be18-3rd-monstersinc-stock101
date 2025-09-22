@@ -1,6 +1,6 @@
-<template>
+﻿<template>
   <div class="community-feed">
-    <button type="button" class="community-feed__back" @click="handleBack">← 돌아가기</button>
+    <button type="button" class="community-feed__back" @click="handleBack">뒤로가기</button>
     <h1 class="community-feed__title">커뮤니티 대화</h1>
 
     <PostComposer
@@ -53,11 +53,11 @@ onMounted(() => {
 })
 
 function requireLogin() {
-  toastStore.pushToast({ message: '로그인 후 사용해 주세요', tone: 'info' })
+  toastStore.pushToast({ message: '로그인이 필요합니다.', tone: 'info' })
 }
 
 function notifyMaxChars() {
-  toastStore.pushToast({ message: '최대 300자만 입력할 수 있어요', tone: 'error' })
+  toastStore.pushToast({ message: '최대 300자까지 입력할 수 있어요.', tone: 'error' })
 }
 
 async function handleCreatePost() {
@@ -65,17 +65,19 @@ async function handleCreatePost() {
     requireLogin()
     return
   }
+  const content = composerContent.value.trim()
+  if (!selectedOpinion.value || !content) return
   try {
     await feedStore.createPost({
       opinion: selectedOpinion.value,
-      content: composerContent.value.trim(),
+      content,
       user: sessionStore.user,
     })
     selectedOpinion.value = ''
     composerContent.value = ''
     toastStore.pushToast({ message: '게시물이 등록되었습니다.', tone: 'success' })
   } catch (error) {
-    toastStore.pushToast({ message: '등록에 실패했습니다. 잠시 후 다시 시도해 주세요.', tone: 'error' })
+    toastStore.pushToast({ message: '등록에 실패했습니다. 잠시 후 다시 시도해주세요.', tone: 'error' })
     console.error(error)
   }
 }
@@ -94,10 +96,11 @@ async function handleLikePost(post) {
     return
   }
   try {
-    const result = await feedStore.toggleLike(post.postId)
+    const wasLiked = post.likedByMe
+    await feedStore.toggleLike(post.postId)
     toastStore.pushToast({
-      message: result.likedByMe ? '좋아요가 반영되었습니다.' : '좋아요가 취소되었습니다',
-      tone: result.likedByMe ? 'success' : 'info',
+      message: wasLiked ? '좋아요가 취소되었습니다.' : '좋아요가 반영되었습니다.',
+      tone: wasLiked ? 'info' : 'success',
     })
   } catch (error) {
     toastStore.pushToast({ message: '좋아요 처리에 실패했습니다.', tone: 'error' })

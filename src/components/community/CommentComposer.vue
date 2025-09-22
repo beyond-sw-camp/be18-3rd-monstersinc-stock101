@@ -1,18 +1,21 @@
 <template>
   <div class="comment-composer" :class="{ 'comment-composer--locked': !isLoggedIn }">
-    <input
-      ref="inputRef"
-      type="text"
-      class="comment-composer__input"
-      :value="modelValue"
-      :readonly="!isLoggedIn || disabled"
-      :placeholder="isLoggedIn ? '의견을 남겨주세요' : '로그인 후 사용해 주세요'"
-      @input="handleInput"
-      @keyup.enter="handleSubmit"
-    />
-    <button type="button" class="comment-composer__button" :disabled="!canSubmit" @click="handleSubmit">
-      등록하기
-    </button>
+    <div class="comment-composer__avatar" aria-hidden="true"></div>
+    <div class="comment-composer__body">
+      <input
+        ref="inputRef"
+        type="text"
+        class="comment-composer__input"
+        :value="modelValue"
+        :readonly="!isLoggedIn || disabled"
+        :placeholder="isLoggedIn ? '의견을 남겨주세요' : '로그인 후 이용해주세요'"
+        @input="handleInput"
+        @keyup.enter="handleSubmit"
+      />
+      <button type="button" class="comment-composer__button" :disabled="!canSubmit" @click="handleSubmit">
+        등록하기
+      </button>
+    </div>
   </div>
 </template>
 
@@ -63,14 +66,22 @@ function handleSubmit() {
   if (!canSubmit.value) return
   emit('submit')
 }
+
+function focus() {
+  if (inputRef.value) {
+    inputRef.value.focus()
+  }
+}
+
+defineExpose({ focus })
 </script>
 
 <style scoped>
 .comment-composer {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 14px;
-  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
   border-radius: 18px;
   border: 1px solid #d1d5db;
   background-color: #ffffff;
@@ -79,6 +90,22 @@ function handleSubmit() {
 .comment-composer--locked {
   border-color: #303047;
   background-color: #75748b;
+}
+
+.comment-composer__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+  flex-shrink: 0;
+}
+
+.comment-composer__body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
 }
 
 .comment-composer__input {

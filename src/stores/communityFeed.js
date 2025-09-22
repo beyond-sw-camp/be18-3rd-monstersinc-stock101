@@ -1,5 +1,6 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { fetchPosts, toggleLike, createPost } from '@/services/communityApi'
+import { useSessionStore } from '@/stores/session'
 
 export const useCommunityFeedStore = defineStore('communityFeed', {
   state: () => ({
@@ -13,7 +14,8 @@ export const useCommunityFeedStore = defineStore('communityFeed', {
       if (this.isInitialized || this.isLoading) return
       this.isLoading = true
       try {
-        const { items } = await fetchPosts()
+        const sessionStore = useSessionStore()
+        const { items } = await fetchPosts({ token: sessionStore.accessToken })
         this.posts = items
         this.error = null
         this.isInitialized = true
@@ -30,11 +32,14 @@ export const useCommunityFeedStore = defineStore('communityFeed', {
       target.likedByMe = optimisticLiked
       target.likeCount += optimisticLiked ? 1 : -1
       try {
-        const { items } = await toggleLike(postId)
-        const [result] = items
-        target.likeCount = result.likeCount
-        target.commentCount = result.commentCount
-        target.likedByMe = result.likedByMe
+        const sessionStore = useSessionStore()
+        const { items } = await toggleLike(postId, { token: sessionStore.accessToken })
+        const [result] = items ?? []
+        if (result) {
+          target.likeCount = result.likeCount ?? target.likeCount
+          target.commentCount = result.commentCount ?? target.commentCount
+          target.likedByMe = result.likedByMe ?? target.likedByMe
+        }
         return target
       } catch (error) {
         target.likedByMe = !optimisticLiked
@@ -50,9 +55,12 @@ export const useCommunityFeedStore = defineStore('communityFeed', {
         userName: user?.name,
         authorTierCode: user?.tier,
       }
-      const { items } = await createPost(payload)
-      const [created] = items
-      this.posts = [created, ...this.posts]
+      const sessionStore = useSessionStore()
+      const { items } = await createPost(payload, { token: sessionStore.accessToken })
+      const [created] = items ?? []
+      if (created) {
+        this.posts = [created, ...this.posts]
+      }
       return created
     },
   },

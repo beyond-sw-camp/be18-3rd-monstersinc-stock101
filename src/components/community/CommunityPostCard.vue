@@ -1,23 +1,34 @@
 <template>
   <article class="community-post-card" @click="handleSelect">
-    <div class="community-post-card__header">
-      <span class="community-post-card__badge" :class="badgeClass">{{ post.opinion }}</span>
+    <div class="community-post-card__top">
+      <div class="community-post-card__profile">
+        <div class="community-post-card__avatar" aria-hidden="true"></div>
+        <div class="community-post-card__info">
+          <div class="community-post-card__identity">
+            <span class="community-post-card__badge" :class="badgeClass">{{ post.opinion }}</span>
+            <div class="community-post-card__user">
+              <span class="community-post-card__author">{{ post.userName }}</span>
+              <img
+                v-if="tierBadgeSrc"
+                :src="tierBadgeSrc"
+                :alt="`${post.authorTierCode ?? ''} tier`"
+                class="community-post-card__tier-badge"
+              />
+            </div>
+          </div>
+          <p class="community-post-card__content">{{ post.content }}</p>
+        </div>
+      </div>
       <span class="community-post-card__timestamp">{{ formattedDate }}</span>
     </div>
 
-    <div class="community-post-card__body">
-      <div class="community-post-card__avatar" aria-hidden="true"></div>
-      <div>
-        <div class="community-post-card__meta">
-          <span class="community-post-card__author">{{ post.userName }}</span>
-          <span class="community-post-card__tier">{{ post.authorTierCode }}</span>
-        </div>
-        <p class="community-post-card__content">{{ post.content }}</p>
-      </div>
-    </div>
-
     <footer class="community-post-card__footer" @click.stop>
-      <button type="button" class="community-post-card__icon" :class="{ 'community-post-card__icon--liked': post.likedByMe }" @click="handleLike">
+      <button
+        type="button"
+        class="community-post-card__icon"
+        :class="{ 'community-post-card__icon--liked': post.likedByMe }"
+        @click="handleLike"
+      >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M12 21s-5.286-4.117-7.607-6.735C2.5 12.178 2 9.488 3.414 7.414 4.828 5.34 7.512 4.5 9.5 6.5l1.5 1.5 1.5-1.5c1.988-2 4.672-1.16 6.086.914 1.414 2.074.914 4.764-1.979 6.851C17.286 16.883 12 21 12 21z"
@@ -48,6 +59,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { getTierBadgeSrc } from '@/utils/tierBadge'
 
 const props = defineProps({
   post: {
@@ -65,6 +77,8 @@ const badgeClass = computed(() => {
   }
   return 'community-post-card__badge--positive'
 })
+
+const tierBadgeSrc = computed(() => getTierBadgeSrc(props.post.authorTierCode))
 
 const formattedDate = computed(() => {
   const value = props.post.createdAt
@@ -93,7 +107,7 @@ function handleComment() {
 .community-post-card {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   padding: 20px 24px;
   border-radius: 18px;
   border: 1px solid #d1d5db;
@@ -107,19 +121,56 @@ function handleComment() {
   transform: translateY(-2px);
 }
 
-.community-post-card__header {
+.community-post-card__top {
   display: flex;
   justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.community-post-card__profile {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.community-post-card__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+  flex-shrink: 0;
+}
+
+.community-post-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.community-post-card__identity {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px;
+}
+
+.community-post-card__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .community-post-card__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   background-color: #f3f4f6;
   color: #111827;
@@ -140,46 +191,35 @@ function handleComment() {
   color: #946c00;
 }
 
-.community-post-card__timestamp {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.community-post-card__body {
-  display: flex;
-  gap: 14px;
-}
-
-.community-post-card__avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
-  flex-shrink: 0;
-}
-
-.community-post-card__meta {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-  color: #6b7280;
-}
-
 .community-post-card__author {
+  font-size: 15px;
   font-weight: 600;
   color: #111827;
 }
 
+.community-post-card__tier-badge {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.community-post-card__timestamp {
+  font-size: 13px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
 .community-post-card__content {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 15px;
   line-height: 1.6;
   color: #374151;
+  word-break: keep-all;
 }
 
 .community-post-card__footer {
   display: flex;
-  gap: 16px;
+  gap: 20px;
 }
 
 .community-post-card__icon {
