@@ -7,11 +7,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Main from '@/pages/main.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
 import CommunityPostDetailView from '@/views/CommunityPostDetailView.vue'
+<<<<<<< HEAD
 import StockCommunityView from '@/views/StockCommunityView.vue'
+=======
+import UserLogin from '@/pages/auth/Login.vue'
+import UserRegister from '@/pages/auth/Register.vue'
+>>>>>>> bf61b67442d81c2ed3f17b84e5a2ad89fc8ce6a1
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+
     {
       path: '/',
       name: "main",
