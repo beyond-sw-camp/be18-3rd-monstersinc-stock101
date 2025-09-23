@@ -7,15 +7,29 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Main from '@/pages/main.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
 import CommunityPostDetailView from '@/views/CommunityPostDetailView.vue'
+
 import Stock_detail from '@/pages/stock_detail.vue'
+import UserLogin from '@/pages/auth/Login.vue'
+import UserRegister from '@/pages/auth/Register.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+
     {
       path: '/',
       name: "main",
       component: Main,
+    },
+        {
+      path: '/auth/login',
+      name: "userLogin",
+      component: UserLogin,
+    },
+    {
+      path: '/auth/register',
+      name: "userRegister",
+      component: UserRegister,
     },
     {
       path: '/stock/:stockId',
