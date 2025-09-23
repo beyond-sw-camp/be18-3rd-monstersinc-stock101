@@ -1,10 +1,8 @@
+import { createRouter, createWebHistory } from 'vue-router'
 import MyProfilePredictionsFeed from '@/views/MyProfilePredictionsFeed.vue'
 import MyProfilePredictionsSuccess from '@/views/MyProfilePredictionsSuccess.vue'
-import UserProfilePosts from '@/views/UserProfilePosts.vue'
 import UserProfilePredictions from '@/views/UserProfilePredictions.vue'
-import { createRouter, createWebHistory } from 'vue-router'
-
-import Main from '@/pages/main.vue'
+import UserProfilePosts from '@/views/UserProfilePosts.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
 import CommunityPostDetailView from '@/views/CommunityPostDetailView.vue'
 
@@ -13,8 +11,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: "main",
-      component: Main,
+      redirect: '/profile/me/predictions',
     },
     {
       path: '/profile/me/predictions',
