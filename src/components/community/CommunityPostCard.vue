@@ -29,9 +29,9 @@
         :class="{ 'community-post-card__icon--liked': post.likedByMe }"
         @click="handleLike"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="22" height="22" viewBox="0 0 28 26" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
-            d="M12 21s-5.286-4.117-7.607-6.735C2.5 12.178 2 9.488 3.414 7.414 4.828 5.34 7.512 4.5 9.5 6.5l1.5 1.5 1.5-1.5c1.988-2 4.672-1.16 6.086.914 1.414 2.074.914 4.764-1.979 6.851C17.286 16.883 12 21 12 21z"
+            d="M14 23.25s-7.45-5.74-10.6-9.37c-3.15-3.63-2.63-8.6 1.1-11.01 2.68-1.73 6.05-.82 7.98 1.73 1.93-2.55 5.3-3.46 7.98-1.73 3.73 2.41 4.25 7.38 1.1 11.01-3.15 3.63-10.6 9.37-10.6 9.37z"
             :fill="post.likedByMe ? '#f05665' : 'none'"
             :stroke="post.likedByMe ? '#f05665' : '#6b7280'"
             stroke-width="1.6"

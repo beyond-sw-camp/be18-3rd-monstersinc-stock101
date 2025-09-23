@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="community-post-detail">
-    <button type="button" class="community-post-detail__back" @click="handleBack">뒤로가기</button>
+    <BaseBackButton class="community-post-detail__back" @click="handleBack">돌아가기</BaseBackButton>
 
     <article v-if="post" class="community-post-detail__card">
       <div class="community-post-detail__top">
@@ -60,7 +60,7 @@
     </article>
 
     <section class="community-post-detail__comments">
-      <h2 class="community-post-detail__section-title">의견을 남겨주세요</h2>
+      <h2 class="community-post-detail__section-title">의견을 남겨보세요.</h2>
       <CommentComposer
         ref="composerRef"
         v-model="commentContent"
@@ -84,15 +84,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import CommentComposer from '@/components/community/CommentComposer.vue'
 import CommunityCommentItem from '@/components/community/CommunityCommentItem.vue'
+import BaseBackButton from '@/components/shared/BaseBackButton.vue'
 import { useCommunityPostStore } from '@/stores/communityPost'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
+import axios from 'axios'
+import { storeToRefs } from 'pinia'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
 const route = useRoute()
@@ -100,6 +102,11 @@ const route = useRoute()
 const postStore = useCommunityPostStore()
 const sessionStore = useSessionStore()
 const toastStore = useToastStore()
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const apiClient = axios.create({
+  baseURL: apiBaseUrl,
+})
 
 const { post, comments } = storeToRefs(postStore)
 
@@ -132,10 +139,47 @@ const formattedDate = computed(() => {
   })
 })
 
+async function loadPostData(postId) {
+  if (!postId) return
+  postStore.isLoading = true
+  try {
+    const headers = {}
+    if (sessionStore.accessToken) {
+      headers.Authorization = `Bearer ${sessionStore.accessToken}`
+    }
+    const [postResponse, commentResponse] = await Promise.all([
+      apiClient.get(`/api/v1/board/posts/${postId}`, { headers }),
+      apiClient.get(`/api/v1/board/posts/${postId}/comments`, { headers }),
+    ])
+    const postItems = Array.isArray(postResponse.data?.items)
+      ? postResponse.data.items
+      : Array.isArray(postResponse.data)
+        ? postResponse.data
+        : []
+    const commentItems = Array.isArray(commentResponse.data?.items)
+      ? commentResponse.data.items
+      : Array.isArray(commentResponse.data)
+        ? commentResponse.data
+        : []
+    if (postItems.length) {
+      postStore.hydrateFromResponse(postItems, commentItems)
+      return
+    }
+    await postStore.load(postId)
+  } catch (error) {
+    console.error('[CommunityPostDetailView] loadPostData failed', error)
+    postStore.error = error
+    toastStore.pushToast({ message: '게시글을 불러오지 못했습니다.', tone: 'error' })
+    await postStore.load(postId)
+  } finally {
+    postStore.isLoading = false
+  }
+}
+
 onMounted(() => {
   const postId = Number(route.params.postId)
   if (Number.isNaN(postId)) return
-  postStore.load(postId)
+  loadPostData(postId)
 })
 
 onUnmounted(() => {
@@ -144,7 +188,7 @@ onUnmounted(() => {
 })
 
 function requireLogin() {
-  toastStore.pushToast({ message: '로그인이 필요합니다.', tone: 'info' })
+  toastStore.pushToast({ message: '로그인 후 이용해 주세요.', tone: 'info' })
 }
 
 function notifyMaxChars() {
@@ -170,7 +214,7 @@ async function handleSubmitComment() {
       parentCommentId: null,
     })
     commentContent.value = ''
-    toastStore.pushToast({ message: '댓글이 등록되었습니다.', tone: 'success' })
+    toastStore.pushToast({ message: '댓글이 등록되었어요.', tone: 'success' })
   } catch (error) {
     toastStore.pushToast({ message: '댓글 등록에 실패했습니다.', tone: 'error' })
     console.error(error)
@@ -190,7 +234,7 @@ async function handleSubmitReply(payload) {
       parentCommentId: payload.parentCommentId,
     })
     payload.onComplete?.()
-    toastStore.pushToast({ message: '답글이 등록되었습니다.', tone: 'success' })
+    toastStore.pushToast({ message: '답글이 등록되었어요.', tone: 'success' })
   } catch (error) {
     toastStore.pushToast({ message: '답글 등록에 실패했습니다.', tone: 'error' })
     console.error(error)
@@ -207,7 +251,7 @@ async function handleToggleLike() {
     const wasLiked = post.value.likedByMe
     await postStore.toggleLike(post.value.postId)
     toastStore.pushToast({
-      message: wasLiked ? '좋아요가 취소되었습니다.' : '좋아요가 반영되었습니다.',
+      message: wasLiked ? '좋아요가 취소되었어요.' : '좋아요가 반영되었어요.',
       tone: wasLiked ? 'info' : 'success',
     })
   } catch (error) {
@@ -233,11 +277,6 @@ function handleBack() {
 
 .community-post-detail__back {
   align-self: flex-start;
-  border: none;
-  background: none;
-  color: #6b7280;
-  font-size: 14px;
-  cursor: pointer;
 }
 
 .community-post-detail__card {
@@ -337,8 +376,8 @@ function handleBack() {
 }
 
 .community-post-detail__content {
-  margin: 0;
-  font-size: 15px;
+  margin: 8px 0 0;
+  font-size: 16px;
   line-height: 1.6;
   color: #374151;
 }
@@ -393,4 +432,6 @@ function handleBack() {
   }
 }
 </style>
+
+
 

@@ -122,6 +122,13 @@ const extractSource = (url) => {
 /* 데모 데이터 — API 연동부로 대체 가능 */
 const indices = ref([])
 const Stocks = ref([])
+const fallbackStocks = [
+  { id: 'stk1', symbol: 'NVDA', name: 'NVIDIA Corp.', price: 120.34, change: 2.45 },
+  { id: 'stk2', symbol: 'TSLA', name: 'Tesla Inc.', price: 215.12, change: -1.18 },
+  { id: 'stk3', symbol: 'AAPL', name: 'Apple Inc.', price: 184.72, change: 0.86 },
+  { id: 'stk4', symbol: 'MSFT', name: 'Microsoft Corp.', price: 410.09, change: 1.04 },
+]
+
 const fallbackNews = [
   {
     id: 'n1',
@@ -156,16 +163,20 @@ onMounted(async () => {
   try {
     const { data } = await axios.get('/api/v1/stock')
     const items = Array.isArray(data?.items) ? data.items : []
-    Stocks.value = items.map((item) => ({
-      id: item.stockId,
-      symbol: item.stockCode || item.name,
-      name: item.name,
-      price: item.price,
-      change: item.fluctuation,
-    }))
+    Stocks.value = items.length
+      ? items.map((item) => ({
+          id: item.stockId,
+          symbol: item.stockCode || item.name,
+          name: item.name,
+          price: item.price,
+          change: item.fluctuation,
+        }))
+      : fallbackStocks.map((item) => ({ ...item }))
   } catch (error) {
-    console.error('주식 데이터를 불러오지 못했습니다.', error)
+    console.error('주식 데이터를 불러오지 못했어요', error)
+    Stocks.value = fallbackStocks.map((item) => ({ ...item }))
   }
+
 
   try {
     const { data } = await axios.get('/api/v1/news/popular-news')

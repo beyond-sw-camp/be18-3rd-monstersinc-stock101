@@ -7,6 +7,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Main from '@/pages/main.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
 import CommunityPostDetailView from '@/views/CommunityPostDetailView.vue'
+import StockCommunityView from '@/views/StockCommunityView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,6 +16,16 @@ const router = createRouter({
       path: '/',
       name: "main",
       component: Main,
+    },
+        {
+      path: '/auth/login',
+      name: "userLogin",
+      component: UserLogin,
+    },
+    {
+      path: '/auth/register',
+      name: "userRegister",
+      component: UserRegister,
     },
     {
       path: '/profile/me/predictions',
@@ -42,6 +53,12 @@ const router = createRouter({
       path: '/community',
       name: 'CommunityFeed',
       component: CommunityFeedView,
+    },
+    {
+      path: '/stock/:symbol',
+      name: 'StockCommunity',
+      component: StockCommunityView,
+      props: true,
     },
     {
       path: '/community/posts/:postId',

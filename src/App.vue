@@ -7,7 +7,6 @@
         <RouterLink to="/profile/me/predictions/success">내 프로필 (성공)</RouterLink>
         <RouterLink to="/profile/users/2/predictions">다른 사용자 예측</RouterLink>
         <RouterLink to="/profile/users/2/posts">다른 사용자 게시물</RouterLink>
-        <RouterLink to="/community">커뮤니티 대화</RouterLink>
       </nav>
     </header>
     <main class="app-shell__main">

@@ -1,21 +1,34 @@
-﻿import { defineStore } from 'pinia'
-import { fetchPosts, toggleLike, createPost } from '@/services/communityApi'
+import { createPost, fetchPosts, toggleLike } from '@/services/communityApi'
 import { useSessionStore } from '@/stores/session'
+import { defineStore } from 'pinia'
 
 export const useCommunityFeedStore = defineStore('communityFeed', {
   state: () => ({
     posts: [],
+    selectedStockId: null,
     isLoading: false,
     error: null,
     isInitialized: false,
   }),
   actions: {
+    setSelectedStockId(stockId) {
+      if (typeof stockId === 'number') {
+        this.selectedStockId = Number.isNaN(stockId) ? null : stockId
+        return
+      }
+      if (stockId == null || stockId === '') {
+        this.selectedStockId = null
+        return
+      }
+      const parsed = Number(stockId)
+      this.selectedStockId = Number.isNaN(parsed) ? null : parsed
+    },
     async ensurePosts() {
       if (this.isInitialized || this.isLoading) return
       this.isLoading = true
       try {
         const sessionStore = useSessionStore()
-        const { items } = await fetchPosts({ token: sessionStore.accessToken })
+        const { items } = await fetchPosts({ token: sessionStore.accessToken, stockId: this.selectedStockId })
         this.posts = items
         this.error = null
         this.isInitialized = true
@@ -47,8 +60,9 @@ export const useCommunityFeedStore = defineStore('communityFeed', {
         throw error
       }
     },
-    async createPost({ opinion, content, user }) {
+    async createPost({ stockId, opinion, content, user }) {
       const payload = {
+        stockId,
         opinion,
         content,
         userId: user?.id,
@@ -65,3 +79,13 @@ export const useCommunityFeedStore = defineStore('communityFeed', {
     },
   },
 })
+
+
+
+
+
+
+
+
+
+

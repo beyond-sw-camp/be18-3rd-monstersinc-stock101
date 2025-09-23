@@ -1,6 +1,11 @@
-﻿import { mockCommunityPosts, mockCommunityComments } from '@/data/communityMock'
+﻿import { mockCommunityComments, mockCommunityPosts } from '@/data/communityMock'
+import axios from 'axios'
 
 const BASE_URL = 'http://localhost:8080'
+const apiClient = axios.create({baseURL: BASE_URL,
+  withCredentials: false,
+
+})
 
 let postSequence = Math.max(...mockCommunityPosts.map((item) => item.postId)) + 1
 let commentSequence = Object.values(mockCommunityComments)
@@ -13,7 +18,7 @@ const commentsMap = new Map(
 )
 
 function buildResponse(code, message, items) {
-  return { code, message, items }
+  return { code, message, items: Array.isArray(items) ? items : [items] };
 }
 
 function unwrapCandidates(payload) {
@@ -29,15 +34,15 @@ function unwrapCandidates(payload) {
 }
 
 function toResponse(payload, fallbackCode = 200, fallbackMessage = 'OK') {
-  const items = unwrapCandidates(payload)
-  return {
-    code: payload?.code ?? fallbackCode,
-    message: payload?.message ?? fallbackMessage,
-    items,
-  }
+  // 백엔드가 ItemsResponseDto 형태
+  // { code, message, items } 를 기대. 없으면 best effort로 맞춰줌
+  if (payload && Array.isArray(payload.items)) return payload;
+  if (Array.isArray(payload)) return { code, message, items: payload };
+  if (payload && typeof payload === 'object') return { code, message, items: [payload] };
+  return { code, message, items: [] };
 }
 
-async function request(path, { method = 'GET', token, body } = {}) {
+async function request(path, { method = 'GET', token, body, params } = {}) {
   const headers = {}
   if (token) {
     headers.Authorization = `Bearer ${token}`
@@ -45,7 +50,8 @@ async function request(path, { method = 'GET', token, body } = {}) {
   if (body) {
     headers['Content-Type'] = 'application/json'
   }
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const query = params ? `?${new URLSearchParams(params).toString()}` : ''
+  const response = await fetch(`${BASE_URL}${path}${query}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -67,15 +73,18 @@ async function request(path, { method = 'GET', token, body } = {}) {
 
 export async function fetchPosts(options = {}) {
   try {
-    const payload = await request('/api/v1/board/posts', { token: options.token })
+    const params = options.stockId ? { stockId: options.stockId } : undefined
+    const payload = await request('/api/v1/board/posts', { token: options.token, params })
     const response = toResponse(payload)
     if (!response.items.length) {
-      return buildResponse(200, 'OK', posts)
+      const list = options.stockId ? posts.filter((p) => Number(p.stockId) === Number(options.stockId)) : posts
+      return buildResponse(200, 'OK', list)
     }
     return response
   } catch (error) {
     console.warn('[communityApi] fetchPosts fallback:', error)
-    return buildResponse(200, 'OK', posts)
+    const list = options.stockId ? posts.filter((p) => Number(p.stockId) === Number(options.stockId)) : posts
+    return buildResponse(200, 'OK', list)
   }
 }
 
@@ -213,6 +222,7 @@ export async function createComment(postId, payload, options = {}) {
       parentCommentId: payload.parentCommentId ?? null,
       userName: payload.userName ?? '사용자',
       authorTierCode: payload.authorTierCode ?? 'BRONZE',
+      // totalCommentCount should reflect the total number of comments for the post
       totalCommentCount: 0,
       deleted: false,
       imageUrl: payload.imageUrl ?? '',
@@ -224,10 +234,15 @@ export async function createComment(postId, payload, options = {}) {
     }
     commentsMap.set(postId, list)
 
+    // Recalculate comment counts from the authoritative list to avoid double-increment bugs
+    const totalCount = list.length
     const target = posts.find((item) => item.postId === postId)
     if (target) {
-      target.commentCount += 1
+      target.commentCount = totalCount
     }
+
+    // set totalCommentCount on the returned comment to the current total
+    newComment.totalCommentCount = totalCount
 
     return buildResponse(201, 'Created', [newComment])
   }

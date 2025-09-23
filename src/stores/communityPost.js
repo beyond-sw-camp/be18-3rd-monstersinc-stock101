@@ -1,6 +1,6 @@
-﻿import { defineStore } from 'pinia'
-import { fetchPostDetail, fetchComments, createComment, toggleLike } from '@/services/communityApi'
+import { createComment, fetchComments, fetchPostDetail, toggleLike } from '@/services/communityApi'
 import { useSessionStore } from '@/stores/session'
+import { defineStore } from 'pinia'
 
 function toDate(value) {
   return value ? new Date(value).getTime() : 0
@@ -111,10 +111,20 @@ export const useCommunityPostStore = defineStore('communityPost', {
       }
 
       if (this.post) {
-        this.post.commentCount += 1
+        // If backend returned a totalCommentCount, use it to avoid double-counting
+        const returnedTotal = typeof createdRaw.totalCommentCount === 'number' ? createdRaw.totalCommentCount : null
+        if (returnedTotal !== null) {
+          this.post.commentCount = returnedTotal
+        } else {
+          this.post.commentCount += 1
+        }
       }
       return created
     },
+    hydrateFromResponse(postItems = [], commentItems = []) {
+            this.post = postItems?.[0] ?? null
+            this.comments = buildCommentTree(commentItems ?? [])
+          this.error = null},
     async toggleLike(postId) {
       if (!this.post || this.post.postId !== postId) return null
       const sessionStore = useSessionStore()
@@ -143,3 +153,6 @@ export const useCommunityPostStore = defineStore('communityPost', {
     },
   },
 })
+
+
+
