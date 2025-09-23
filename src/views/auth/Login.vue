@@ -11,17 +11,18 @@
                 <div class="input-group flex-group">
                     <span class="input-label">아이디 :</span>
                     <input v-model="email" type="email" id="login-email" required class="custom-input flex-item"
-                        placeholder="이메일을 입력하세요"  />
+                        placeholder="이메일을 입력하세요" />
                 </div>
 
                 <div class="input-group flex-group">
                     <span class="input-label">비밀번호 :</span>
                     <input v-model="password" type="password" id="login-password" required
-                        class="custom-input flex-item" placeholder="비밀번호를 입력하세요"
-                        />
+                        class="custom-input flex-item" placeholder="비밀번호를 입력하세요" />
                 </div>
 
+                <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
                 <button type="submit" class="login-button">로그인</button>
+
 
                 <p class="switch">계정이 없나요?
                     <router-link :to="{ name: 'Register' }" class="register-link">회원 가입하기</router-link>
@@ -33,17 +34,30 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useAuthStore } from '@/stores/authStore';
+import router from '@/router';
+
 
 // 예시 데이터 및 함수 정의
 const email = ref('');
 const password = ref('');
 const submitted = ref(false);
+const authStore = useAuthStore()
+const errorMessage = ref('');
 
-const submitLogin = () => {
+async function submitLogin() {
     submitted.value = true;
+    errorMessage.value = '';
+
     console.log('로그인 시도:', email.value, password.value);
-    // ...
-};
+    const result = await authStore.login(email.value, password.value);
+
+    if (result.success) {
+        router.push('/');
+    } else {
+        errorMessage.value = result.message;
+    }
+}
 </script>
 
 <style scoped>
@@ -133,6 +147,10 @@ h1 {
 /* ==================================== */
 /* 3. 버튼 및 링크 스타일 */
 /* ==================================== */
+.error-message {
+  color: red;
+  font-weight: bold;
+}
 
 .login-button {
     width: 100%;
