@@ -151,7 +151,7 @@ h1 {
 .error-message {
   color: red;
   font-weight: bold;
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .login-button {

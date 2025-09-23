@@ -32,14 +32,18 @@ export function useAuthValidation(email, password, passwordConfirm = null, name 
         }
     });
 
-    // 비밀번호 관련 실시간 검증 로직을 하나로 통합
+
+
     const validatePassword = () => {
+            const hasLetter = /[a-zA-Z]/.test(password.value);
+            const hasNumber = /[0-9]/.test(password.value);
+
         // 1. 비밀번호 강도 검증 (8자 이상) - 회원가입 시에만 필요할 수 있으나, 일단 공통 로직으로 포함
-        if (password.value && password.value.length < 8) {
-            passwordError.value = '비밀번호는 8자 이상이어야 합니다.';
-            // 영문 + 숫자 조합으로 8자이상. (특문 들어가도 상관없음.)
+        if ((password.value && password.value.length < 8 ) || (hasLetter ==false) || (hasNumber==false)) {
+            passwordError.value = '비밀번호는 8자 이상 (숫자 + 영문) 이어야 합니다.';
             return;
         }
+        
 
         // 2. 비밀번호 일치 여부 검증 (passwordConfirm 인자가 있을 경우에만 실행)
         if (passwordConfirm && passwordConfirm.value && password.value !== passwordConfirm.value) {
