@@ -7,6 +7,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Main from '@/pages/main.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
 import CommunityPostDetailView from '@/views/CommunityPostDetailView.vue'
+import Stock_detail from '@/pages/stock_detail.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,6 +16,12 @@ const router = createRouter({
       path: '/',
       name: "main",
       component: Main,
+    },
+    {
+      path: '/stock/:stockId',
+      name: "stockDetail",
+      component: Stock_detail,
+      props: true,
     },
     {
       path: '/profile/me/predictions',

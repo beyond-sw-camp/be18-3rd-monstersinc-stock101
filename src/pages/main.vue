@@ -45,7 +45,7 @@
             :change="item.change"
             :percentMode="true"
             :clickable="true"
-            @click="goStock(item.symbol)"
+            @click="goStock(item.id)"
           />
         </div>
       </div>
@@ -92,7 +92,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import BaseGrid from '@/components/grid/BaseGrid.vue'
@@ -194,7 +194,8 @@ onMounted(async () => {
           avatar: '', 
           name: item.name, 
           status: item.tierCode, 
-          verified: true
+          verified: true,
+          tierCode: item.tierCode
         }))
       : fallbackNews.map((item) => ({ ...item }))
   } catch (error) {
