@@ -1,6 +1,6 @@
 <template>
     <section class="card">
-        <div class="back"> ← 돌아가기</div>
+        <div class="back" @click ="goBack"> ← 돌아가기</div>
 
         <h1>환영해요</h1>
         <p class="sub">오늘도 **stock101**과 함께 똑똑한 투자 여정을 이어가세요. </p>
@@ -44,6 +44,7 @@ const password = ref('');
 const submitted = ref(false);
 const authStore = useAuthStore()
 const errorMessage = ref('');
+const goBack = () =>{router.back();}
 
 async function submitLogin() {
     submitted.value = true;
@@ -150,6 +151,7 @@ h1 {
 .error-message {
   color: red;
   font-weight: bold;
+  font-size: 10px;
 }
 
 .login-button {

@@ -1,6 +1,6 @@
 <template>
     <section class="card">
-        <div class="back"> ← 돌아가기</div>
+        <div class="back" @click="goBack"> ← 돌아가기</div>
 
         <h1 class="main-title">Stock101에서</h1>
         <h1 class="main-title">투자 여정을 시작하세요</h1>
@@ -12,13 +12,15 @@
                 <div class="input-group">
                     <label for="register-name" class="input-label">이름</label>
                     <input type="text" id="register-name" v-model="name" required class="custom-input" />
+                    <p v-if="nameError" class="error-message">{{ nameError }}</p>
                 </div>
-                
+
                 <div class="input-group">
                     <label for="register-email" class="input-label">이메일</label>
                     <input type="email" id="register-email" v-model="email" required class="custom-input" />
+                    <p v-if="emailError" class="error-message">{{ emailError }}</p>
                 </div>
-
+                
                 <div class="input-group">
                     <label for="register-password" class="input-label">비밀번호</label>
                     <input type="password" id="register-password" v-model="password" required class="custom-input" />
@@ -28,27 +30,28 @@
                     <label for="confirm-password" class="input-label">비밀번호 확인</label>
                     <input type="password" id="confirm-password" v-model="passwordConfirm" required class="custom-input" />
                 </div>
-
+                    <p v-if="passwordError" class="error-message">{{ passwordError }}</p>
+                
                 <div class="checkbox-group">
                     <input type="checkbox" id="terms-agree" v-model="termsAgreed" required class="custom-checkbox">
                     <label for="terms-agree" class="checkbox-label">약관 및 개인정보 처리 동의<span class="required-text">(필수)</span></label>
                 </div>
 
-                <div class="checkbox-group">
-                    <input type="checkbox" id="newsletter-subscribe" v-model="newsletterSubscribed" class="custom-checkbox">
-                    <label for="newsletter-subscribe" class="checkbox-label">뉴스레터 구독하고 똑똑한 투자 시작하기<span class="optional-text">(선택)</span></label>
-                </div>
+                <p v-if="serverErrorMessage" class="error-message">{{ serverErrorMessage }}</p>
                 
                 <button type="submit" class="register-button" :disabled="!isFormValid">회원 가입</button>
-
-                <p class="switch">계정이 있다면 <router-link :to="{ name: 'userLogin' }" class="login-link">로그인</router-link> 해주세요</p>er
+                
+                <p class="switch">계정이 있다면 <router-link :to="{ name: 'userLogin' }" class="login-link">로그인</router-link> 해주세요</p>
             </form>
         </div>
     </section>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'; 
+import { ref, computed} from 'vue'; 
+import { useRouter } from 'vue-router';
+import { useAuthValidation } from './AuthValidator';
+import apiClient from '@/api';
 
 // 데이터 정의
 const name = ref('');
@@ -56,37 +59,63 @@ const email = ref('');
 const password = ref('');
 const passwordConfirm = ref('');
 const termsAgreed = ref(false);
-const newsletterSubscribed = ref(false);
+const serverErrorMessage = ref('');
+// const newsletterSubscribed = ref(false);
+const router = useRouter();
+const goBack = () =>{router.back();}
 
-// 폼 유효성 검사 (예시)
-const isFormValid = computed(() => {
-    // 필수 필드 및 비밀번호 일치, 필수 약관 동의 검사
-    return name.value && email.value && password.value && 
-           (password.value === passwordConfirm.value) && termsAgreed.value;
-});
+const { nameError, emailError, passwordError } = useAuthValidation(email, password, passwordConfirm, name);
+
+const isFormValid = computed(()=>{
+          return name.value && email.value && password.value &&
+             (password.value === passwordConfirm.value) && termsAgreed.value &&
+             !emailError.value && !passwordError.value; 
+})
 
 // 회원가입 제출 함수
-const submitRegister = () => {
-    if (isFormValid.value) {
-        console.log('회원가입 정보:', {
-            name: name.value,
-            email: email.value,
-            password: password.value,
-            newsletter: newsletterSubscribed.value
-        });
-        // 여기에 실제 회원가입 API 호출 로직을 구현하세요.
-    } else {
-        alert('필수 정보를 모두 입력하고 약관에 동의해주세요.');
-    }
+async function submitRegister() {
+ if (!isFormValid.value) {
+          console.error('폼 제출이 거부되었습니다. 유효성 검사를 확인하세요.');
+          return;
+      }
+
+      serverErrorMessage.value = ''; // 이전 에러 메시지 초기화
+
+      try {
+          // API 호출
+          await apiClient.post('/api/v1/users/register', {
+              name: name.value,
+              email: email.value,
+              password: password.value,
+          });
+
+          // 회원가입 성공 시
+          alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
+          router.push({ name: 'userLogin' });
+
+      } catch (error) {
+          // API 호출 실패 시
+          console.error('회원가입 실패:', error);
+          if (error.response && error.response.status === 409) {
+              // 409 Conflict: 이미 사용 중인 이메일
+              serverErrorMessage.value = '이미 사용 중인 이메일입니다.';
+              console.error(error);
+            } else {
+                // 그 외 다른 에러
+                serverErrorMessage.value = '회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                console.error(error);
+          }
+      }
 };
 </script>
 
----
-
-## 🎨 스타일링 (Scoped CSS)
-
-```css
 <style scoped>
+.error-message {
+    color: red;
+    font-size: 12px;
+    font-weight: bold;
+}
+
 /* 카드 컨테이너: 로그인 페이지와 동일한 스타일 유지 */
 .card {
     max-width: 560px;
