@@ -1,7 +1,7 @@
 ﻿<template>
   <section class="post-composer">
     <header class="post-composer__header">
-      <h2 class="post-composer__title">Share your view</h2>
+      <h2 class="post-composer__title">지금 당신의 생각을 남겨보세요</h2>
     </header>
 
     <OpinionSelector v-model="opinionProxy" :disabled="!isLoggedIn || disabled" />
@@ -10,7 +10,7 @@
       <textarea
         ref="textareaRef"
         class="post-composer__textarea"
-        :placeholder="isLoggedIn ? 'Write what is on your mind' : '\ub85c\uadf8\uc778 \ud6c4 \uc774\uc6a9\ud574 \uc8fc\uc138\uc694'"
+        :placeholder="isLoggedIn ? '' : '로그인 후 사용해 주세요.'"
         :value="content"
         :maxlength="maxLength"
         :readonly="disabled || !isLoggedIn"
@@ -144,7 +144,7 @@ function handleSubmit() {
 }
 
 .post-composer__textarea-wrapper--locked {
-  background-color: #75748b;
+  background-color: #ffffff;
   border-color: #303047;
 }
 
@@ -156,7 +156,7 @@ function handleSubmit() {
   background: transparent;
   font-size: 15px;
   line-height: 1.5;
-  color: #1f2937;
+  color: #c4d7e8;
   resize: vertical;
 }
 

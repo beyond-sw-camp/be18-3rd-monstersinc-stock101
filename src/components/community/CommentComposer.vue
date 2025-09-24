@@ -1,6 +1,8 @@
 ﻿<template>
   <div class="comment-composer" :class="{ 'comment-composer--locked': !isLoggedIn }">
-    <div class="comment-composer__avatar" aria-hidden="true"></div>
+    <div v-if="props.showAvatar" class="comment-composer__avatar" aria-hidden="true">
+      <img v-if="sessionStore.user?.imageUrl" :src="sessionStore.user.imageUrl" alt="avatar" class="comment-composer__avatar-img" />
+    </div>
     <div class="comment-composer__body">
       <input
         ref="inputRef"
@@ -8,7 +10,7 @@
         class="comment-composer__input"
         :value="modelValue"
         :readonly="!isLoggedIn || disabled"
-        :placeholder="isLoggedIn ? 'Add a comment' : '\ub85c\uadf8\uc778 \ud6c4 \uc774\uc6a9\ud574 \uc8fc\uc138\uc694'"
+  :placeholder="''"
         @mousedown="handleLockedInteraction"
         @focus="handleFocus"
         @input="handleInput"
@@ -22,6 +24,7 @@
 </template>
 
 <script setup>
+import { useSessionStore } from '@/stores/session'
 import { computed, ref } from 'vue'
 
 const props = defineProps({
@@ -41,11 +44,16 @@ const props = defineProps({
     type: Number,
     default: 300,
   },
+  showAvatar: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 const emit = defineEmits(['update:modelValue', 'submit', 'exceed', 'login-required'])
 
 const inputRef = ref(null)
+const sessionStore = useSessionStore()
 
 const canSubmit = computed(() => props.isLoggedIn && !props.disabled && props.modelValue.trim().length > 0)
 
@@ -111,7 +119,7 @@ defineExpose({ focus })
 
 .comment-composer--locked {
   border-color: #303047;
-  background-color: #75748b;
+  background-color: #ffffff;
 }
 
 .comment-composer__avatar {
@@ -120,6 +128,13 @@ defineExpose({ focus })
   border-radius: 50%;
   background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
   flex-shrink: 0;
+}
+
+.comment-composer__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .comment-composer__body {
@@ -146,12 +161,24 @@ defineExpose({ focus })
   color: rgba(17, 24, 39, 0.5);
 }
 
+.comment-composer--locked .comment-composer__body {
+  background-color: #f9fafb;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.comment-composer--locked .comment-composer__input {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 8px;
+}
+
 .comment-composer__button {
   min-width: 96px;
   padding: 12px 20px;
   border-radius: 14px;
   border: none;
-  background-color: #14122a;
+  background-color: #0b091d;
   color: #fff;
   font-weight: 600;
   font-size: 14px;

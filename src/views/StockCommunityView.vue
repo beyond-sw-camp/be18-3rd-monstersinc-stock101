@@ -3,7 +3,7 @@
     <div class="stock-community__inner">
       <BaseBackButton class="stock-community__back" @click="handleBack">돌아가기</BaseBackButton>
       <section class="stock-community__conversation">
-        <CommunityFeedView :show-back-button="false" />
+        <CommunityFeedView :show-back-button="false" :stock-id="stockId" />
       </section>
     </div>
   </div>
@@ -12,6 +12,8 @@
 <script setup>
 import BaseBackButton from '@/components/shared/BaseBackButton.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
+import axios from 'axios'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 defineProps({
@@ -22,6 +24,21 @@ defineProps({
 })
 
 const router = useRouter()
+const stockId = ref(null)
+
+onMounted(async () => {
+  if (!__props.symbol) return
+  try {
+    const { data } = await axios.get('/api/v1/stock', { params: { symbol: __props.symbol } })
+    // backend shape may return items or data; try a few options
+    const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : null
+    const found = items?.[0] ?? data?.item ?? data?.stock ?? null
+    if (found && typeof found.stockId === 'number') stockId.value = found.stockId
+  } catch (e) {
+    // ignore - view will fall back to default behavior in CommunityFeedView
+    console.error('Failed to resolve stockId for symbol', __props.symbol, e)
+  }
+})
 
 function handleBack() {
   router.back()

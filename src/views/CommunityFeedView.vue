@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="community-feed">
     <button type="button" class="community-feed__back" @click="handleBack">Back</button>
-    <h1 class="community-feed__title">Community Feed</h1>
+    <h1 class="community-feed__title">커뮤니티 대화</h1>
 
     <PostComposer
       :opinion="selectedOpinion"
@@ -30,21 +30,25 @@
 <script setup>
 import CommunityPostCard from '@/components/community/CommunityPostCard.vue'
 import PostComposer from '@/components/community/PostComposer.vue'
-import { fetchPosts } from '@/services/communityApi'
-import { useCommunityFeedStore } from '@/stores/communityFeed'
+import { useAuthStore } from '@/stores/authStore'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import axios from 'axios'
-import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const LOGIN_REQUIRED_MESSAGE = '\ub85c\uadf8\uc778 \ud6c4 \uc774\uc6a9\ud574 \uc8fc\uc138\uc694'
 
 const router = useRouter()
-const feedStore = useCommunityFeedStore()
 const sessionStore = useSessionStore()
+const authStore = useAuthStore()
 const toastStore = useToastStore()
+
+const posts = ref([])
+const isLoading = ref(false)
+const error = ref(null)
+const isInitialized = ref(false)
+const selectedStockId = ref(null)
 
 
 const props = defineProps({
@@ -56,30 +60,45 @@ const props = defineProps({
 // for quick local testing default to 1001 when neither prop nor store provides it
 const TEST_DEFAULT_STOCK_ID = 1001
 
-// use relative path so Vite dev server proxy (vite.config) forwards /api requests to backend (port 8080)
-
-const { posts, selectedStockId } = storeToRefs(feedStore)
 
 const selectedOpinion = ref('')
 const composerContent = ref('')
 
-const isLoggedIn = computed(() => sessionStore.isLoggedIn)
+const DEV_FALLBACK_POSTS = [
+  { postId: 26, stockId: 0, userId: 15, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-23 17:17:00', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://plus.unsplash.com/premium_photo-1710911198710-3097c518f0e1?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 25, stockId: 0, userId: 15, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-23 16:43:12', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://plus.unsplash.com/premium_photo-1710911198710-3097c518f0e1?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 24, stockId: 0, userId: 1, opinion: 'SELL', content: 'striasng', createdAt: '2025-09-22 15:01:53', userName: '박진우', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'DIAMOND', imageUrl: 'https://plus.unsplash.com/premium_photo-1690407617542-2f210cf20d7e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 23, stockId: 0, userId: 15, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-22 10:54:19', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://plus.unsplash.com/premium_photo-1710911198710-3097c518f0e1?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 20, stockId: 0, userId: 15, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-21 15:38:50', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://plus.unsplash.com/premium_photo-1710911198710-3097c518f0e1?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 18, stockId: 0, userId: 1, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-19 17:09:39', userName: '박진우', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'DIAMOND', imageUrl: 'https://plus.unsplash.com/premium_photo-1690407617542-2f210cf20d7e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 17, stockId: 0, userId: 1, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-19 17:07:48', userName: '박진우', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'DIAMOND', imageUrl: 'https://plus.unsplash.com/premium_photo-1690407617542-2f210cf20d7e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 16, stockId: 0, userId: 15, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-19 12:39:50', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://plus.unsplash.com/premium_photo-1710911198710-3097c518f0e1?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 15, stockId: 0, userId: 2, opinion: 'Sell', content: 'ewww', createdAt: '2025-09-18 16:05:11', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 8, authorTierCode: 'BRONZE', imageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 14, stockId: 0, userId: 1, opinion: 'qwer', content: 'qwer', createdAt: '2025-09-11 23:08:53', userName: '박진우', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'DIAMOND', imageUrl: 'https://plus.unsplash.com/premium_photo-1690407617542-2f210cf20d7e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+  { postId: 1, stockId: 0, userId: 2, opinion: 'Buy', content: 'yyy', createdAt: '2025-09-08 23:34:47', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+]
+
+const isLoggedIn = computed(() => !!(authStore.userInfo?.accessToken))
+const hasAuth = computed(() => {
+  try {
+    if (authStore && authStore.isLoggedIn) return true
+  } catch (e) {}
+  if (authStore && authStore.userInfo?.accessToken) return true
+  if (sessionStore && sessionStore.accessToken) return true
+  if (sessionStore && sessionStore.user) return true
+  return false
+})
 
 async function loadFeed() {
-  if (feedStore.isLoading) return
-  feedStore.isLoading = true
-  // determine effective stockId to request (prop -> store -> test default)
+  if (isLoading.value) return
+  isLoading.value = true
   const effectiveStockId = props.stockId ?? selectedStockId.value ?? TEST_DEFAULT_STOCK_ID
   try {
-    const headers = {}
-    if (sessionStore.accessToken) {
-      headers.Authorization = `Bearer ${sessionStore.accessToken}`
-    }
     const params = {}
     if (effectiveStockId != null) params.stockId = effectiveStockId
-    console.debug('[CommunityFeedView] requesting posts', { url: '/api/v1/board/posts', headers, params })
-  // send request via Vite proxy (relative path) so browser CORS isn't an issue
-  const { data } = await axios.get('/api/v1/board/posts', { headers, params })
+    const base = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api/v1/board/posts` : '/api/v1/board/posts'
+    console.debug('[CommunityFeedView] requesting posts', { url: base, params })
+    const { data } = await axios.get(base, { params, timeout: 8000 })
     const items = Array.isArray(data?.items)
       ? data.items
       : Array.isArray(data?.data)
@@ -87,27 +106,23 @@ async function loadFeed() {
         : Array.isArray(data)
           ? data
           : []
-    // Always set posts (may be empty). Do not treat empty list as an error.
-    feedStore.posts = items
-    feedStore.error = null
-    feedStore.isInitialized = true
-  } catch (error) {
-    console.error('[CommunityFeedView] loadFeed failed', error)
-    feedStore.error = error
+    if ((!items || items.length === 0) && import.meta.env.MODE === 'development') {
+      posts.value = DEV_FALLBACK_POSTS
+    } else {
+      posts.value = items
+    }
+    error.value = null
+    isInitialized.value = true
+  } catch (err) {
+    console.error('[CommunityFeedView] loadFeed failed', err)
+    error.value = err
     if (isLoggedIn.value) {
       toastStore.pushToast({ message: 'Unable to load posts.', tone: 'error' })
     }
-    // Try fallback (local/mock) with the same effective stockId
-    try {
-      const fallback = await fetchPosts({ token: sessionStore.accessToken, stockId: effectiveStockId })
-      feedStore.posts = fallback.items
-      feedStore.error = null
-      feedStore.isInitialized = true
-    } catch (fallbackError) {
-      console.error('[CommunityFeedView] fallback load failed', fallbackError)
-    }
+    posts.value = []
+    isInitialized.value = true
   } finally {
-    feedStore.isLoading = false
+    isLoading.value = false
   }
 }
 
@@ -120,23 +135,34 @@ function requireLogin() {
 }
 
 function notifyMaxChars() {
-  toastStore.pushToast({ message: 'You can enter up to 300 characters.', tone: 'error' })
+  toastStore.pushToast({ message: '최대 300자까지만 입력할 수 있어요.', tone: 'error' })
 }
 
 async function handleCreatePost() {
-  if (!isLoggedIn.value) {
-    requireLogin()
+  if (!hasAuth.value) {
+    // prefer a clear toast when auth missing and clear composer content
+    toastStore.pushToast({ message: '로그인 후 사용해 주세요.', tone: 'info' })
+    composerContent.value = ''
+    selectedOpinion.value = ''
     return
   }
   const content = composerContent.value.trim()
   if (!selectedOpinion.value || !content) return
   try {
-    await feedStore.createPost({
-      stockId: selectedStockId.value,
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
+  const headers = {}
+  // prefer token from authStore (populated by login), fallback to sessionStore
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+    const body = {
+      stockId: props.stockId ?? selectedStockId.value ?? TEST_DEFAULT_STOCK_ID,
       opinion: selectedOpinion.value,
       content,
-      user: sessionStore.user,
-    })
+    }
+    const { data } = await axios.post('/api/v1/board/posts', body, { headers })
+    const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+    const [created] = items
+    if (created) posts.value = [created, ...posts.value]
     selectedOpinion.value = ''
     composerContent.value = ''
     toastStore.pushToast({ message: 'Post created.', tone: 'success' })
@@ -155,16 +181,13 @@ async function handleCreatePost() {
       toastStore.pushToast({ message: 'Enter some content before posting.', tone: 'warning' })
       return
     }
-    toastStore.pushToast({ message: 'Failed to create the post. Please try again.', tone: 'error' })
+    toastStore.pushToast({ message: '로그인 후 사용해 주세요.', tone: 'error' })
     console.error(error)
   }
 }
 
 function handleSelectPost(post) {
-  if (!isLoggedIn.value) {
-    requireLogin()
-    return
-  }
+  // always navigate to post detail; detail view will gate actions (like/comment) as needed
   router.push({ name: 'CommunityPostDetail', params: { postId: post.postId } })
 }
 
@@ -175,12 +198,28 @@ async function handleLikePost(post) {
   }
   try {
     const wasLiked = post.likedByMe
-    await feedStore.toggleLike(post.postId)
+    // optimistic update
+    post.likedByMe = !wasLiked
+    post.likeCount += !wasLiked ? 1 : -1
+  const headers = {}
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+  const { data } = await axios.post(`/api/v1/board/posts/${post.postId}/like`, null, { headers })
+    const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : []
+    const [result] = items
+    if (result) {
+      if (typeof result.likeCount === 'number') post.likeCount = result.likeCount
+      if (typeof result.likedByMe === 'boolean') post.likedByMe = result.likedByMe
+      if (typeof result.commentCount === 'number') post.commentCount = result.commentCount
+    }
     toastStore.pushToast({
       message: wasLiked ? 'Like removed.' : 'Like added.',
       tone: wasLiked ? 'info' : 'success',
     })
   } catch (error) {
+    // revert optimistic update
+    post.likedByMe = wasLiked
+    post.likeCount += wasLiked ? 1 : -1
     toastStore.pushToast({ message: 'Failed to update like.', tone: 'error' })
     console.error(error)
   }

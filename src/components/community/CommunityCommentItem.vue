@@ -1,6 +1,11 @@
 <template>
   <article class="community-comment-item">
-    <div class="community-comment-item__avatar" aria-hidden="true"></div>
+    <template v-if="comment.imageUrl">
+      <img :src="comment.imageUrl" alt="avatar" class="community-comment-item__avatar-img" />
+    </template>
+    <template v-else>
+      <div class="community-comment-item__avatar" aria-hidden="true"></div>
+    </template>
     <div class="community-comment-item__content">
       <header class="community-comment-item__header">
         <span class="community-comment-item__author">{{ comment.userName }}</span>
@@ -70,8 +75,8 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   comment: {
@@ -167,6 +172,13 @@ function toggleReplies() {
   border-radius: 50%;
   background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
   flex-shrink: 0;
+}
+
+.community-comment-item__avatar-img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .community-comment-item__content {

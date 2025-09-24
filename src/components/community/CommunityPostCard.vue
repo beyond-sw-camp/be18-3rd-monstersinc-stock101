@@ -2,7 +2,12 @@
   <article class="community-post-card" @click="handleSelect">
     <div class="community-post-card__top">
       <div class="community-post-card__profile">
-        <div class="community-post-card__avatar" aria-hidden="true"></div>
+        <template v-if="post.imageUrl">
+          <img :src="post.imageUrl" alt="avatar" class="community-post-card__avatar-img" />
+        </template>
+        <template v-else>
+          <div class="community-post-card__avatar" aria-hidden="true"></div>
+        </template>
         <div class="community-post-card__info">
           <div class="community-post-card__identity">
             <span class="community-post-card__badge" :class="badgeClass">{{ post.opinion }}</span>
@@ -58,8 +63,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
+import { computed } from 'vue'
 
 const props = defineProps({
   post: {
@@ -141,6 +146,13 @@ function handleComment() {
   border-radius: 50%;
   background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
   flex-shrink: 0;
+}
+
+.community-post-card__avatar-img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .community-post-card__info {
