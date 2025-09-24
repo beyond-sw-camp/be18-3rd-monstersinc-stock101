@@ -195,7 +195,7 @@ async function handleCreatePost() {
     }
     selectedOpinion.value = ''
     composerContent.value = ''
-    toastStore.pushToast({ message: 'Post created.', tone: 'success' })
+    toastStore.pushToast({ message: '게시물이 등록되었어요.', tone: 'success' })
     await loadFeed()
   } catch (error) {
     const message = error?.message
