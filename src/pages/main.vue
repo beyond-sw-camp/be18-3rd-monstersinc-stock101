@@ -8,8 +8,14 @@
         <p class="tagline">시장의 지표들을 한눈에 찾아보고, 새로운 투자 관점을 탐험해보세요.</p>
       </div>
       <div class="hero__actions">
-        <BaseButton class="btn" @click="goRegister">회원 가입</BaseButton>
-        <BaseButton class="btn btn--primary" @click="goLogin">로그인</BaseButton>
+        <template v-if="!authStore.isLoggedIn">
+          <BaseButton class="btn" @click="goRegister">회원 가입</BaseButton>
+          <BaseButton class="btn btn--primary" @click="goLogin">로그인</BaseButton>
+        </template>
+        <template v-else>
+          <BaseButton class="btn" @click="goProfile({id:'me'})"> 내 정보</BaseButton>
+          <BaseButton class="btn btn--primary" @click="goLogout">로그아웃</BaseButton>
+        </template>
       </div>
     </header>
 
@@ -94,6 +100,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 
 import BaseGrid from '@/components/grid/BaseGrid.vue'
 import StatCard from '@/components/card/variants/StatCard.vue'
@@ -103,14 +110,17 @@ import BaseButton from '@/components/button/BaseButton.vue'
 import axios from 'axios'
 
 const router = useRouter()
-const goLogin = () => router.push({ path: '/auth', query: { type: 'login' } })
-const goRegister = () => router.push({ path: '/auth', query: { type: 'register' } })
+const authStore = useAuthStore();
+//const isLoggedIn = computed(() =>{ authStore.tokenInfo.accessToken});
+const goLogin = () => router.push({ path: '/auth/login', query: { type: 'login' } })
+//const goLogout = () 
+const goRegister = () => router.push({ path: '/auth/register', query: { type: 'register' } })
 const goProfile = (item) => {
   const path = item.id == 'me' ? '/me' : `/users/${item.id}`
   router.push({ path })
 }
 const goStock = (ticker) => router.push({ path: `/stock/${ticker}` })
-
+const goLogout = ()=>{authStore.logout(); router.push({name:'main'})};// 보던페이지로 변경 필요
 const extractSource = (url) => {
   try {
     return new URL(url).hostname.replace(/^www\./, '')

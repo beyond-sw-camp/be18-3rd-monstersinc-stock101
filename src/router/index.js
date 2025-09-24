@@ -3,6 +3,7 @@ import MyProfilePredictionsSuccess from '@/views/MyProfilePredictionsSuccess.vue
 import UserProfilePosts from '@/views/UserProfilePosts.vue'
 import UserProfilePredictions from '@/views/UserProfilePredictions.vue'
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 
 import Main from '@/pages/main.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
@@ -24,12 +25,15 @@ const router = createRouter({
         {
       path: '/auth/login',
       name: "userLogin",
+      meta: { requiresAuth: false, guestOnly: true },
       component: UserLogin,
     },
     {
       path: '/auth/register',
       name: "userRegister",
       component: UserRegister,
+      meta: { requiresAuth: false, guestOnly: true }
+
     },
     {
       path: '/stock/:stockId',
@@ -71,6 +75,19 @@ const router = createRouter({
       props: true,
     },
   ],
-})
+});
+//  네비게이션 가드
+router.beforeEach((to, from, next) => {
+    const authStore = useAuthStore();
+    const isLoggedIn = authStore.isLoggedIn; // 로그인 상태 가져오기
+
+    if (to.meta.guestOnly && isLoggedIn) {
+        next({ name: 'main' }); 
+    } else {
+        next();
+    }
+});
+
+
 
 export default router
