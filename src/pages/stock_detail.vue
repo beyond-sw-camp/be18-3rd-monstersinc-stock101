@@ -380,16 +380,17 @@ const prediction = async (isBullish) => {
   const payload = buildPredictionPayload(isBullish)
 
   try {
-    await axios.post('/api/v1/prediction/create', payload, {
+    await axios.post('/api/v1/prediction/create', payload,{
       headers: {
         Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`
         // TODO: 필요 시 Content-Type 등 추가 헤더를 정의하세요.
       }
     })
-    // TODO: 성공 후 사용자 알림, UI 갱신 등 추가 행동을 정의하세요.
+    console.log("등록 완료")
+    alert("등록 완료")
   } catch (error) {
     console.error('예측을 등록하지 못했습니다.', error)
-    // TODO: 에러 토스트, 재시도 로직 등 필요 시 구현하세요.
+    alert('오류가 발생하였습니다')
   }
 }
 
