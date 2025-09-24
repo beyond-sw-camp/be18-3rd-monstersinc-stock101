@@ -52,10 +52,10 @@ import { getTierBadgeSrc } from '@/utils/tierBadge'
 /**
  * @component UserCard
  * @description
- * 사용자 정보를 표시하는 카드 컴포넌트  
- * - 아바타, 이름, 상태 메시지, 인증 배지를 지원  
- * - 링크/라우팅 기능(BaseCard 기반) 제공  
- * - `size` 프리셋(sm, md, lg)으로 아바타 크기 조절  
+ * 사용자 정보를 표시하는 카드 컴포넌트
+ * - 아바타, 이름, 상태 메시지, 인증 배지를 지원
+ * - 링크/라우팅 기능(BaseCard 기반) 제공
+ * - `size` 프리셋(sm, md, lg)으로 아바타 크기 조절
  * - badge, body를 슬롯으로 확장 가능
  *
  * @slot badge   이름 옆 배지 영역 (기본: 인증 뱃지 🏅)
@@ -101,6 +101,7 @@ const props = defineProps({
   status:   { type: String, default: '' },
   verified: { type: Boolean, default: false },
   alt:      { type: String, default: '' },
+  userId:   { type: [String, Number], default: null },
 
   // 링크/라우터(BaseCard로 전달)
   to:     { type: [String, Object], default: null },

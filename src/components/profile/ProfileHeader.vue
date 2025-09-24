@@ -1,21 +1,32 @@
 <template>
   <section class="profile-header">
     <div class="profile-header__avatar" aria-hidden="true">
-      <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="`${user.name} 아바타`" />
+      <img v-if="user.imageUrl || user.avatarUrl" :src="user.imageUrl || user.avatarUrl" :alt="`${user.name} 아바타`" />
       <div v-else class="profile-header__avatar--placeholder"></div>
     </div>
     <div class="profile-header__details">
       <div class="profile-header__name-row">
         <h2 class="profile-header__name">{{ user.name }}</h2>
+        <img
+          v-if="tierBadgeSrc"
+          :src="tierBadgeSrc"
+          :alt="`${user.tierCode || 'BRONZE'} 등급 배지`"
+          class="profile-header__tier-badge"
+          loading="lazy"
+          decoding="async"
+        />
         <span v-if="user.badge" class="profile-header__badge">{{ user.badge }}</span>
       </div>
       <p class="profile-header__status">{{ user.statusMessage }}</p>
     </div>
-    <button v-if="isOwner" type="button" class="profile-header__action">수정하기</button>
+    <button v-if="showEditButton" type="button" class="profile-header__action">수정하기</button>
   </section>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { getTierBadgeSrc } from '@/utils/tierBadge'
+
 const props = defineProps({
   user: {
     type: Object,
@@ -26,6 +37,25 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  currentUser: {
+    type: Object,
+    default: null,
+  },
+})
+
+const tierBadgeSrc = computed(() => {
+  if (!props.user?.tierCode) {
+    return getTierBadgeSrc('BRONZE')
+  }
+  return getTierBadgeSrc(props.user.tierCode)
+})
+
+const showEditButton = computed(() => {
+  // Show edit button only if current user exists and is viewing their own profile
+  if (!props.currentUser) {
+    return false
+  }
+  return props.currentUser.id === props.user.id || props.isOwner
 })
 </script>
 
@@ -72,6 +102,13 @@ const props = defineProps({
   font-size: 24px;
   font-weight: 600;
   color: #111827;
+}
+
+.profile-header__tier-badge {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  margin-left: 4px;
 }
 
 .profile-header__badge {
