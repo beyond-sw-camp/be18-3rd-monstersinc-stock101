@@ -1,14 +1,16 @@
+
+import { useAuthStore } from '@/stores/authStore'
 import ProfileView from '@/views/ProfileView.vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
 
+import UserLogin from '@/pages/auth/Login.vue'
+import UserRegister from '@/pages/auth/Register.vue'
 import Main from '@/pages/main.vue'
+import Stock_detail from '@/pages/stock_detail.vue'
 import CommunityFeedView from '@/views/CommunityFeedView.vue'
 import CommunityPostDetailView from '@/views/CommunityPostDetailView.vue'
 
-import Stock_detail from '@/pages/stock_detail.vue'
-import UserLogin from '@/pages/auth/Login.vue'
-import UserRegister from '@/pages/auth/Register.vue'
+import StockCommunityView from '@/views/StockCommunityView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,6 +48,12 @@ const router = createRouter({
       path: '/community',
       name: 'CommunityFeed',
       component: CommunityFeedView,
+    },
+    {
+      path: '/stock/:symbol',
+      name: 'StockCommunity',
+      component: StockCommunityView,
+      props: true,
     },
     {
       path: '/community/posts/:postId',

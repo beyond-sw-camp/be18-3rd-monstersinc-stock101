@@ -1,6 +1,8 @@
-<template>
+﻿<template>
   <div class="comment-composer" :class="{ 'comment-composer--locked': !isLoggedIn }">
-    <div class="comment-composer__avatar" aria-hidden="true"></div>
+    <div v-if="props.showAvatar" class="comment-composer__avatar" aria-hidden="true">
+      <img v-if="sessionStore.user?.imageUrl" :src="sessionStore.user.imageUrl" alt="avatar" class="comment-composer__avatar-img" />
+    </div>
     <div class="comment-composer__body">
       <input
         ref="inputRef"
@@ -8,18 +10,21 @@
         class="comment-composer__input"
         :value="modelValue"
         :readonly="!isLoggedIn || disabled"
-        :placeholder="isLoggedIn ? '의견을 남겨주세요' : '로그인 후 이용해주세요'"
+  :placeholder="''"
+        @mousedown="handleLockedInteraction"
+        @focus="handleFocus"
         @input="handleInput"
         @keyup.enter="handleSubmit"
       />
       <button type="button" class="comment-composer__button" :disabled="!canSubmit" @click="handleSubmit">
-        등록하기
+        Comment
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useSessionStore } from '@/stores/session'
 import { computed, ref } from 'vue'
 
 const props = defineProps({
@@ -39,16 +44,39 @@ const props = defineProps({
     type: Number,
     default: 300,
   },
+  showAvatar: {
+    type: Boolean,
+    default: true,
+  },
 })
 
-const emit = defineEmits(['update:modelValue', 'submit', 'exceed'])
+const emit = defineEmits(['update:modelValue', 'submit', 'exceed', 'login-required'])
 
 const inputRef = ref(null)
+const sessionStore = useSessionStore()
 
 const canSubmit = computed(() => props.isLoggedIn && !props.disabled && props.modelValue.trim().length > 0)
 
+function emitLoginRequired() {
+  emit('login-required')
+}
+
+function handleLockedInteraction() {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+  }
+}
+
+function handleFocus(event) {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+    event?.target?.blur?.()
+  }
+}
+
 function handleInput(event) {
   if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
     event.target.value = props.modelValue
     return
   }
@@ -63,14 +91,16 @@ function handleInput(event) {
 }
 
 function handleSubmit() {
+  if (!props.isLoggedIn) {
+    emitLoginRequired()
+    return
+  }
   if (!canSubmit.value) return
   emit('submit')
 }
 
 function focus() {
-  if (inputRef.value) {
-    inputRef.value.focus()
-  }
+  inputRef.value?.focus?.()
 }
 
 defineExpose({ focus })
@@ -89,7 +119,7 @@ defineExpose({ focus })
 
 .comment-composer--locked {
   border-color: #303047;
-  background-color: #75748b;
+  background-color: #ffffff;
 }
 
 .comment-composer__avatar {
@@ -98,6 +128,13 @@ defineExpose({ focus })
   border-radius: 50%;
   background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
   flex-shrink: 0;
+}
+
+.comment-composer__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .comment-composer__body {
@@ -124,12 +161,24 @@ defineExpose({ focus })
   color: rgba(17, 24, 39, 0.5);
 }
 
+.comment-composer--locked .comment-composer__body {
+  background-color: #f9fafb;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.comment-composer--locked .comment-composer__input {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 8px;
+}
+
 .comment-composer__button {
   min-width: 96px;
   padding: 12px 20px;
   border-radius: 14px;
   border: none;
-  background-color: #14122a;
+  background-color: #0b091d;
   color: #fff;
   font-weight: 600;
   font-size: 14px;

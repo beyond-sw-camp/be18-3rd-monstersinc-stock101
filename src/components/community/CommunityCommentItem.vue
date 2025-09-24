@@ -1,6 +1,11 @@
 <template>
   <article class="community-comment-item">
-    <div class="community-comment-item__avatar" aria-hidden="true"></div>
+    <template v-if="comment.imageUrl">
+      <img :src="comment.imageUrl" alt="avatar" class="community-comment-item__avatar-img" />
+    </template>
+    <template v-else>
+      <div class="community-comment-item__avatar" aria-hidden="true"></div>
+    </template>
     <div class="community-comment-item__content">
       <header class="community-comment-item__header">
         <span class="community-comment-item__author">{{ comment.userName }}</span>
@@ -44,17 +49,27 @@
 
       <div v-if="replies.length" class="community-comment-item__replies">
         <div v-for="reply in visibleReplies" :key="reply.commentId" class="community-comment-item__reply-item">
-          <header class="community-comment-item__reply-header">
-            <span class="community-comment-item__reply-author">{{ reply.userName }}</span>
-            <img
-              v-if="getReplyBadge(reply)"
-              :src="getReplyBadge(reply)"
-              :alt="`${reply.authorTierCode ?? ''} tier`"
-              class="community-comment-item__tier-badge"
-            />
-            <span class="community-comment-item__reply-meta">{{ formatReplyDate(reply.createdAt) }}</span>
-          </header>
-          <p class="community-comment-item__reply-body">{{ reply.content }}</p>
+          <div class="community-comment-item__reply-row">
+            <template v-if="reply.imageUrl">
+              <img :src="reply.imageUrl" alt="avatar" class="community-comment-item__reply-avatar" />
+            </template>
+            <template v-else>
+              <div class="community-comment-item__reply-avatar" aria-hidden="true"></div>
+            </template>
+            <div class="community-comment-item__reply-body-wrapper">
+              <header class="community-comment-item__reply-header">
+                <span class="community-comment-item__reply-author">{{ reply.userName }}</span>
+                <img
+                  v-if="getReplyBadge(reply)"
+                  :src="getReplyBadge(reply)"
+                  :alt="`${reply.authorTierCode ?? ''} tier`"
+                  class="community-comment-item__tier-badge"
+                />
+                <span class="community-comment-item__reply-meta">{{ formatReplyDate(reply.createdAt) }}</span>
+              </header>
+              <p class="community-comment-item__reply-body">{{ reply.content }}</p>
+            </div>
+          </div>
         </div>
         <button
           v-if="hasHiddenReplies || repliesExpanded"
@@ -70,8 +85,8 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   comment: {
@@ -167,6 +182,13 @@ function toggleReplies() {
   border-radius: 50%;
   background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
   flex-shrink: 0;
+}
+
+.community-comment-item__avatar-img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .community-comment-item__content {
@@ -279,6 +301,25 @@ function toggleReplies() {
   border-radius: 14px;
   border: 1px solid #e5e7eb;
   background-color: #f9fafb;
+}
+
+.community-comment-item__reply-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.community-comment-item__reply-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+}
+
+.community-comment-item__reply-body-wrapper {
+  flex: 1;
 }
 
 .community-comment-item__reply-header {
