@@ -6,7 +6,7 @@
     <PostComposer
       :opinion="selectedOpinion"
       :content="composerContent"
-      :is-logged-in="isLoggedIn"
+      :is-logged-in="hasAuth"
       @update:opinion="(value) => (selectedOpinion = value)"
       @update:content="(value) => (composerContent = value)"
       @submit="handleCreatePost"
@@ -19,9 +19,11 @@
         v-for="post in posts"
         :key="post.postId"
         :post="post"
+        :is-logged-in="hasAuth"
         @select="handleSelectPost"
         @comment="handleSelectPost"
         @like="handleLikePost"
+        @login-required="requireLogin"
       />
     </section>
   </div>
@@ -34,10 +36,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-const LOGIN_REQUIRED_MESSAGE = '\ub85c\uadf8\uc778 \ud6c4 \uc774\uc6a9\ud574 \uc8fc\uc138\uc694'
+const LOGIN_REQUIRED_MESSAGE = '로그인 후 사용해 주세요.'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -78,14 +80,15 @@ const DEV_FALLBACK_POSTS = [
   { postId: 1, stockId: 0, userId: 2, opinion: 'Buy', content: 'yyy', createdAt: '2025-09-08 23:34:47', userName: 'test', likedByMe: false, likeCount: 0, commentCount: 0, authorTierCode: 'BRONZE', imageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
 ]
 
-const isLoggedIn = computed(() => !!(authStore.userInfo?.accessToken))
+// prefer the authStore's isLoggedIn flag and explicit accessToken check
+const isLoggedIn = computed(() => !!(authStore.isLoggedIn || authStore.userInfo?.accessToken))
 const hasAuth = computed(() => {
   try {
     if (authStore && authStore.isLoggedIn) return true
   } catch (e) {}
   if (authStore && authStore.userInfo?.accessToken) return true
-  if (sessionStore && sessionStore.accessToken) return true
-  if (sessionStore && sessionStore.user) return true
+  // do not treat demo-access-token as authenticated for UI gating
+  if (sessionStore && sessionStore.accessToken && sessionStore.accessToken !== 'demo-access-token') return true
   return false
 })
 
@@ -109,7 +112,26 @@ async function loadFeed() {
     if ((!items || items.length === 0) && import.meta.env.MODE === 'development') {
       posts.value = DEV_FALLBACK_POSTS
     } else {
-      posts.value = items
+      // normalize server fields so UI reliably reflects liked state and counts
+      const currentUserId = authStore.userInfo?.userId ?? sessionStore.user?.id ?? sessionStore.user?.userId
+      posts.value = items.map((it) => {
+        // robust liked detection: server may use different field names or shapes
+        const likedByMeRaw = it.likedByMe ?? it.liked ?? it.isLiked ?? it.liked_by_me ?? it.likedByUser
+        let likedByMe = !!likedByMeRaw
+        // if server returns a list of userIds who liked the post, use that as fallback
+        try {
+          if (!likedByMe && Array.isArray(it.likedUserIds) && currentUserId) {
+            likedByMe = it.likedUserIds.includes(Number(currentUserId))
+          }
+        } catch (e) {
+          /* ignore */
+        }
+        return {
+          ...it,
+          likedByMe,
+          likeCount: typeof it.likeCount === 'number' ? it.likeCount : Number(it.likeCount || 0),
+        }
+      })
     }
     error.value = null
     isInitialized.value = true
@@ -163,6 +185,11 @@ async function handleCreatePost() {
     const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
     const [created] = items
     if (created) posts.value = [created, ...posts.value]
+    if (created) {
+      created.likedByMe = !!(created.likedByMe ?? created.liked ?? created.isLiked)
+      created.likeCount = typeof created.likeCount === 'number' ? created.likeCount : Number(created.likeCount || 0)
+      posts.value = [created, ...posts.value]
+    }
     selectedOpinion.value = ''
     composerContent.value = ''
     toastStore.pushToast({ message: 'Post created.', tone: 'success' })
@@ -174,11 +201,11 @@ async function handleCreatePost() {
       return
     }
     if (message === 'OPINION_REQUIRED') {
-      toastStore.pushToast({ message: 'Choose an opinion before posting.', tone: 'warning' })
+      toastStore.pushToast({ message: '의견을 선택해 주세요.', tone: 'warning' })
       return
     }
     if (message === 'CONTENT_REQUIRED') {
-      toastStore.pushToast({ message: 'Enter some content before posting.', tone: 'warning' })
+      toastStore.pushToast({ message: '내용을 작성해 주세요.', tone: 'warning' })
       return
     }
     toastStore.pushToast({ message: '로그인 후 사용해 주세요.', tone: 'error' })
@@ -192,38 +219,41 @@ function handleSelectPost(post) {
 }
 
 async function handleLikePost(post) {
-  if (!isLoggedIn.value) {
+  // authoritative login check: require explicit authStore login + token
+  const logged = !!(authStore.isLoggedIn || authStore.userInfo?.accessToken)
+  if (!logged) {
     requireLogin()
     return
   }
   try {
     const wasLiked = post.likedByMe
-    // optimistic update
+    // optimistic toggle for visual feedback
     post.likedByMe = !wasLiked
-    post.likeCount += !wasLiked ? 1 : -1
-  const headers = {}
-  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
-  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
-  const { data } = await axios.post(`/api/v1/board/posts/${post.postId}/like`, null, { headers })
+    const headers = {}
+    const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+    if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+    const { data } = await axios.post(`/api/v1/board/posts/${post.postId}/like`, null, { headers })
     const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : []
     const [result] = items
     if (result) {
-      if (typeof result.likeCount === 'number') post.likeCount = result.likeCount
-      if (typeof result.likedByMe === 'boolean') post.likedByMe = result.likedByMe
-      if (typeof result.commentCount === 'number') post.commentCount = result.commentCount
+      // always apply server-provided authoritative values
+      post.likeCount = typeof result.likeCount === 'number' ? result.likeCount : Number(result.likeCount || post.likeCount || 0)
+      post.likedByMe = !!(result.likedByMe ?? result.liked ?? result.isLiked)
+      post.commentCount = typeof result.commentCount === 'number' ? result.commentCount : post.commentCount
     }
-    toastStore.pushToast({
-      message: wasLiked ? 'Like removed.' : 'Like added.',
-      tone: wasLiked ? 'info' : 'success',
-    })
+    toastStore.pushToast({ message: wasLiked ? '좋아요가 취소되었어요.' : '좋아요가 반영되었어요.', tone: wasLiked ? 'info' : 'success' })
   } catch (error) {
-    // revert optimistic update
+    // revert optimistic liked state
     post.likedByMe = wasLiked
-    post.likeCount += wasLiked ? 1 : -1
     toastStore.pushToast({ message: 'Failed to update like.', tone: 'error' })
     console.error(error)
   }
 }
+
+// reload feed when component is re-activated (e.g., returned to via keep-alive)
+onActivated(() => {
+  loadFeed()
+})
 
 function handleBack() {
   router.back()

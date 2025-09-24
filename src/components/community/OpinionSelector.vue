@@ -12,7 +12,7 @@
         'opinion-selector__button--neutral': option.tone === 'neutral' && modelValue === option.value,
       }"
       :disabled="disabled"
-      @click="$emit('update:modelValue', option.value)"
+      @click="handleClick(option.value, $event)"
     >
       {{ option.label }}
     </button>
@@ -38,6 +38,20 @@ const options = [
   { label: 'Buy', value: 'Buy', tone: 'positive' },
   { label: 'Strong Buy', value: 'Strong Buy', tone: 'positive' },
 ]
+</script>
+
+<script>
+export default {
+  methods: {
+    handleClick(value, event) {
+      if (this.disabled) {
+        this.$emit('login-required')
+        return
+      }
+      this.$emit('update:modelValue', value)
+    },
+  },
+}
 </script>
 
 <style scoped>

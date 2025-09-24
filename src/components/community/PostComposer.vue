@@ -4,13 +4,13 @@
       <h2 class="post-composer__title">지금 당신의 생각을 남겨보세요</h2>
     </header>
 
-    <OpinionSelector v-model="opinionProxy" :disabled="!isLoggedIn || disabled" />
+  <OpinionSelector v-model="opinionProxy" :disabled="!isLoggedIn || disabled" @login-required="$emit('login-required')" />
 
     <div class="post-composer__textarea-wrapper" :class="{ 'post-composer__textarea-wrapper--locked': !isLoggedIn }">
       <textarea
         ref="textareaRef"
         class="post-composer__textarea"
-        :placeholder="isLoggedIn ? '' : '로그인 후 사용해 주세요.'"
+        :placeholder="''"
         :value="content"
         :maxlength="maxLength"
         :readonly="disabled || !isLoggedIn"
@@ -52,14 +52,14 @@ const props = defineProps({
   },
   isLoggedIn: {
     type: Boolean,
-    default: true,
+    default: false,
   },
 })
 
 const emit = defineEmits(['update:opinion', 'update:content', 'submit', 'exceed', 'login-required'])
 
 const textareaRef = ref(null)
-
+let lastLoginEmit = 0
 const opinionProxy = computed({
   get: () => props.opinion,
   set: (value) => emit('update:opinion', value),
@@ -72,6 +72,10 @@ const canSubmit = computed(
 )
 
 function emitLoginRequired() {
+  const now = Date.now()
+  // prevent duplicate emits within a short window (e.g., mousedown + focus)
+  if (now - lastLoginEmit < 800) return
+  lastLoginEmit = now
   emit('login-required')
 }
 
@@ -139,13 +143,13 @@ function handleSubmit() {
   position: relative;
   border-radius: 20px;
   border: 1px solid #d1d5db;
-  background-color: #f9fafb;
+  background-color: #ffffff;
   overflow: hidden;
 }
 
 .post-composer__textarea-wrapper--locked {
-  background-color: #ffffff;
-  border-color: #303047;
+  background-color: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .post-composer__textarea {

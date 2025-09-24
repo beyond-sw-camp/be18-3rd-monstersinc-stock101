@@ -231,7 +231,11 @@ async function loadPostData(postId) {
       : Array.isArray(commentsResp.data)
         ? commentsResp.data
         : []
-    post.value = postItems?.[0] ?? null
+    post.value = postItems?.[0]
+    if (post.value) {
+      post.value.likedByMe = !!post.value.likedByMe
+      post.value.likeCount = typeof post.value.likeCount === 'number' ? post.value.likeCount : Number(post.value.likeCount || 0)
+    }
     comments.value = buildCommentTree(commentItems ?? [])
     error.value = null
   } catch (err) {
@@ -381,10 +385,9 @@ async function handleToggleLike() {
   }
   if (!post.value) return
   try {
-    const wasLiked = post.value.likedByMe
-    // optimistic update
-    post.value.likedByMe = !wasLiked
-    post.value.likeCount = (post.value.likeCount || 0) + (!wasLiked ? 1 : -1)
+  const wasLiked = post.value.likedByMe
+  // optimistic toggle for visual feedback, but DO NOT compute likeCount locally
+  post.value.likedByMe = !wasLiked
   const headers = {}
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
@@ -399,9 +402,8 @@ async function handleToggleLike() {
     }
     toastStore.pushToast({ message: wasLiked ? '좋아요가 취소되었어요.' : '좋아요가 반영되었어요.', tone: wasLiked ? 'info' : 'success' })
   } catch (err) {
-    // revert optimistic
-    post.value.likedByMe = !post.value.likedByMe
-    post.value.likeCount = (post.value.likeCount || 0) + (post.value.likedByMe ? 1 : -1)
+  // revert optimistic liked state
+  post.value.likedByMe = wasLiked
     toastStore.pushToast({ message: '로그인 후 이용해 주세요.', tone: 'error' })
     console.error(err)
   }
