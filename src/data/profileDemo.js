@@ -115,7 +115,9 @@ export function calculatePredictionSummary(predictions) {
   const total = predictions.length
   const success = predictions.filter((item) => item.result === 'SUCCESS').length
   const failure = predictions.filter((item) => item.result === 'FAILURE').length
-  const pending = predictions.filter((item) => item.result === 'PENDING').length
+  const pending = predictions.filter(
+    (item) => item.result === null || item.result === 'PENDING',
+  ).length
   const resolved = success + failure
   const accuracy = resolved === 0 ? 0 : Math.round((success / resolved) * 100)
 
