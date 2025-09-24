@@ -265,9 +265,10 @@ function handleBack() {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  padding: 40px;
-  max-width: 900px;
+  padding: 42px;
+  max-width: 1020px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .community-feed__back {
@@ -294,7 +295,7 @@ function handleBack() {
 
 @media (max-width: 768px) {
   .community-feed {
-    padding: 24px;
+    padding: 28px;
   }
 
   .community-feed__title {

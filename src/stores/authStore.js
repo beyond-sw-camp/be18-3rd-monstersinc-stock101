@@ -21,26 +21,30 @@ export const useAuthStore = defineStore('auth', () => {
         return (!!userInfo.accessToken && (userInfo.expiresAt ) > Date.now());
     })
 
-    const login = async (email, password) => {
+    const login = async (email, password, stayloggedin) => {
         try {
             const response = await apiClient.post('/api/v1/auth/login', { email, password });
-
             const data = response.data.items[0];
-            userInfo.accessToken = data.accessToken;
-            userInfo.userId = data.userId;
-            userInfo.userName= data.userName;
-            userInfo.tierCode = data.tierCode;
-            userInfo.imageURL = data.imageURL;
-            userInfo.statusMessage = data.statusMessage;
-            userInfo.expiresAt = data.expiresAt;
 
-            localStorage.setItem('authToken', data.accessToken);
-            localStorage.setItem('userId', data.userId);
-            localStorage.setItem('userName', data.userName);
-            localStorage.setItem('tierCode', data.tierCode);
-            localStorage.setItem('imageURL', data.imageURL);
-            localStorage.setItem('statusMessage', data.statusMessage);
-            localStorage.setItem('expiresAt', data.expiresAt);
+            Object.assign(userInfo, {
+                accessToken: data.accessToken,
+                userId: data.userId,
+                userName: data.userName,
+                tierCode: data.tierCode,
+                imageURL: data.imageURL,
+                statusMessage: data.statusMessage,
+                expiresAt: data.expiresAt,
+            });
+
+            const storage = stayloggedin ? localStorage : sessionStorage;
+            
+            storage.setItem('authToken', data.accessToken);
+            storage.setItem('userId', data.userId);
+            storage.setItem('userName', data.userName);
+            storage.setItem('tierCode', data.tierCode);
+            storage.setItem('imageURL', data.imageURL);
+            storage.setItem('statusMessage', data.statusMessage);
+            storage.setItem('expiresAt', data.expiresAt);
 
             return { success: true };
 
@@ -58,21 +62,37 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const logout = () => {
-        userInfo.accessToken = '';
-        userInfo.userId = 0;
+       Object.assign(userInfo, {
+            accessToken: '',
+            userId: 0,
+            userName: '',
+            tierCode: '',
+            imageURL: '',
+            statusMessage: '',
+            expiresAt: 0,
+        });
+        
+        // localStorage와 sessionStorage 모두에서 모든 토큰 관련 데이터 삭제
         localStorage.removeItem('authToken');
         localStorage.removeItem('userId');
         localStorage.removeItem('userName');
         localStorage.removeItem('tierCode');
-        localStorage.removeItem('userId');
         localStorage.removeItem('imageURL');
         localStorage.removeItem('statusMessage');
+        localStorage.removeItem('expiresAt');
+        
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('userName');
+        sessionStorage.removeItem('tierCode');
+        sessionStorage.removeItem('imageURL');
+        sessionStorage.removeItem('statusMessage');
+        sessionStorage.removeItem('expiresAt');
         
     }
 
     const refreshAccessToken = async () => {
         try {
-            // 브라우저가 쿠키를 자동으로 보내주므로, 요청 본문에 아무것도 보낼 필요가 없습니다.
             const response = await apiClient.post('/api/v1/auth/refresh');
             const tokenData = response.data.items[0];
 
