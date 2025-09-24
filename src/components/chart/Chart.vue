@@ -1,204 +1,286 @@
 <template>
-  <div>
-    <LineChart :chart-data="chartData" :chart-options="chartOptions" />
-    <button @click="connect">해외주식 실시간 연결 시작</button>
+  <div class="chart-wrapper">
+    <div class="chart-meta">
+      <span class="chart-symbol">{{ symbol }}</span>
+      <span class="chart-last-price" v-if="lastPriceDisplay">{{ lastPriceDisplay }}</span>
+    </div>
+    <apexchart type="candlestick" :options="chartOptions" :series="series"></apexchart>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, onBeforeUnmount } from "vue"
-import { Line as LineChart } from "vue-chartjs"
-import {
-  Chart as ChartJS, Title, Tooltip, Legend, LineElement,
-  PointElement, CategoryScale, LinearScale
-} from "chart.js"
+<script>
+import VueApexCharts from 'vue3-apexcharts'
 
-ChartJS.register(Title, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale)
+const START_TS = new Date('2024-06-10T09:30:00-04:00').getTime()
+const HISTORICAL_ENDPOINT = 'http://localhost:8080/api/v1/rest-client/getStockPrice'
 
-const props = defineProps({
-  ticker: { type: String, required: true },
-  exchange: { type: String, default: "" },
-  label: { type: String, default: "" }
-})
+const toPrice = (value) => Number(value.toFixed(2))
 
-const datasetLabel = computed(() => {
-  if (!props.ticker) return "실시간 체결가"
-  return props.label || `${props.ticker} 실시간 체결가`
-})
+const randomBetween = (min, max) => Math.random() * (max - min) + min
 
-const trKey = computed(() => {
-  if (!props.ticker) return ""
-  if (props.ticker.includes("@")) return props.ticker
-  return props.exchange ? `${props.ticker}@${props.exchange}` : props.ticker
-})
+const mapApiRecordToCandle = (record) => {
+  if (!record) return null
+  const timeValue = record.datetime || record.dateTime || record.time
+  const timestamp = timeValue ? new Date(timeValue).getTime() : Number.NaN
+  const open = Number(record.open)
+  const high = Number(record.high)
+  const low = Number(record.low)
+  const close = Number(record.last ?? record.close)
 
-// 차트 데이터 구조
-const chartData = ref({
-  labels: [],
-  datasets: [
-    {
-      label: datasetLabel.value,
-      data: [],
-      borderColor: "rgb(255,99,132)",
-      tension: 0.1
-    }
-  ]
-})
+  if (!Number.isFinite(timestamp) || !Number.isFinite(open) || !Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)) {
+    return null
+  }
 
-watch(datasetLabel, (nextLabel) => {
-  chartData.value.datasets[0].label = nextLabel
-})
+  const openVal = toPrice(open)
+  const closeVal = toPrice(close)
+  const highVal = toPrice(Math.max(high, openVal, closeVal))
+  const lowVal = toPrice(Math.max(0, Math.min(low, openVal, closeVal)))
 
-const resetChart = () => {
-  chartData.value.labels = []
-  chartData.value.datasets[0].data = []
+  return { x: timestamp, y: [openVal, highVal, lowVal, closeVal] }
 }
 
-watch(trKey, (nextKey, prevKey) => {
-  resetChart()
+const createDummyCandles = (count = 200, intervalMinutes = 5) => {
+  const candles = []
+  const intervalMs = intervalMinutes * 60 * 1000
+  let lastClose = 178.35
 
-  if (!nextKey) {
-    disconnect()
-    return
+  for (let i = 0; i < count; i += 1) {
+    const timestamp = START_TS + i * intervalMs
+    const open = lastClose
+    const bias = Math.sin(i / 18) * 0.75 + Math.cos(i / 27) * 0.45
+    const randomShock = randomBetween(-1.35, 1.35)
+    const close = open + bias + randomShock
+    const highRange = Math.abs(randomBetween(0.25, 1.4))
+    const lowRange = Math.abs(randomBetween(0.25, 1.4))
+    const high = Math.max(open, close) + highRange
+    const low = Math.min(open, close) - lowRange
+
+    const openVal = toPrice(open)
+    const closeVal = toPrice(close)
+    const highVal = toPrice(Math.max(high, openVal, closeVal))
+    const lowVal = toPrice(Math.max(0, Math.min(low, openVal, closeVal)))
+
+    candles.push({ x: timestamp, y: [openVal, highVal, lowVal, closeVal] })
+    lastClose = close
   }
 
-  if (prevKey && ws?.readyState === WebSocket.OPEN) {
-    connect(true)
-  }
-})
-
-const chartOptions = ref({
-  responsive: true,
-  animation: false
-})
-
-let ws = null
-
-const approvalKey = ref("")
-
-async function fetchApprovalKey() {
-  if (approvalKey.value) {
-    return approvalKey.value
-  }
-
-  try {
-    const response = await fetch("/api/v1/rest-client/sendWSkey")
-    if (!response.ok) {
-      throw new Error(`Approval key request failed with status ${response.status}`)
-    }
-
-    const contentType = response.headers.get("content-type") ?? ""
-    if (contentType.includes("application/json")) {
-      const payload = await response.json()
-      approvalKey.value = payload?.approvalKey || payload?.approval_key || ""
-    } else {
-      approvalKey.value = (await response.text()).trim()
-    }
-
-    if (!approvalKey.value) {
-      throw new Error("Approval key response was empty")
-    }
-
-    return approvalKey.value
-  } catch (error) {
-    console.error("승인 키를 가져오지 못했습니다.", error)
-    throw error
-  }
+  return candles
 }
 
-// 웹소켓 연결 함수
-async function connect(forceReconnect = false) {
-  if (!trKey.value) {
-    console.warn("구독할 티커가 필요합니다.")
-    return
-  }
+const DUMMY_CANDLES = createDummyCandles()
 
-  if (ws) {
-    const isOpen = ws.readyState === WebSocket.OPEN
-    const isConnecting = ws.readyState === WebSocket.CONNECTING
-    if (!forceReconnect && (isOpen || isConnecting)) {
-      console.info("이미 WebSocket 연결이 진행 중입니다.")
-      return
+export default {
+  components: { apexchart: VueApexCharts },
+  props: {
+    ticker: {
+      type: String,
+      default: 'AAPL'
     }
-    disconnect()
-  }
-
-  const url = "wss://openapi.koreainvestment.com:9443/websocket"
-  ws = new WebSocket(url)
-
-  ws.onopen = async () => {
-    console.log("해외주식 WebSocket 연결 성공")
-
-    let key
-    try {
-      key = await fetchApprovalKey()
-    } catch {
-      ws?.close()
-      return
-    }
-
-    // 해외주식 체결가 구독 메시지
-    const message = {
-      header: {
-        approval_key: key,
-        custtype: "P", // 개인
-        tr_type: "1",  // 등록
-        content: {
-          tr_id: "HDFSASP0", // 해외주식 실시간 체결가 (시장별 다름)
-          tr_key: trKey.value // 종목코드@거래소 (테슬라@나스닥)
+  },
+  data() {
+    return {
+      maxPoints: 240,
+      refreshMs: 60_000,
+      refreshTimer: null,
+      series: [{ data: [] }],
+      chartOptions: {
+        chart: {
+          type: 'candlestick',
+          background: '#f9fbff',
+          foreColor: '#1e2a4a',
+          parentHeightOffset: 0,
+          fontFamily:
+            "'IBM Plex Sans', 'Spoqa Han Sans Neo', 'Apple SD Gothic Neo', sans-serif",
+          toolbar: { show: false },
+          animations: {
+            enabled: true,
+            easing: 'easeinout',
+            speed: 600,
+            dynamicAnimation: { enabled: true, speed: 350 }
+          }
+        },
+        theme: { mode: 'light' },
+        plotOptions: {
+          candlestick: {
+            colors: { upward: '#ff5252', downward: '#1f87ff' },
+            wick: { useFillColor: true }
+          }
+        },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 1 },
+        grid: {
+          borderColor: 'rgba(180, 195, 220, 0.6)',
+          strokeDashArray: 4,
+          padding: { left: 18, right: 18, top: 6, bottom: 6 }
+        },
+        xaxis: {
+          type: 'datetime',
+          tooltip: { enabled: false },
+          crosshairs: {
+            show: true,
+            stroke: { color: 'rgba(64, 124, 255, 0.65)', width: 1, dashArray: 3 }
+          },
+          labels: {
+            datetimeUTC: false,
+            style: { colors: '#425b8f', fontWeight: 500 }
+          },
+          axisBorder: { color: 'rgba(128, 158, 214, 0.65)' },
+          axisTicks: { color: 'rgba(128, 158, 214, 0.65)' }
+        },
+        yaxis: {
+          tooltip: { enabled: true },
+          labels: {
+            formatter(val) {
+              return typeof val === 'number' ? `${val.toFixed(2)} USD` : ''
+            },
+            style: { colors: '#425b8f', fontWeight: 500 },
+            offsetX: -6
+          }
+        },
+        tooltip: {
+          theme: 'light',
+          style: { fontFamily: "'IBM Plex Sans', sans-serif" },
+          x: { format: 'MMM dd, HH:mm' },
+          y: {
+            formatter(val) {
+              return typeof val === 'number' ? `${val.toFixed(2)} USD` : ''
+            }
+          }
+        },
+        legend: { show: false },
+        noData: {
+          text: '해외 시장 데이터를 불러오는 중입니다...',
+          align: 'center',
+          style: {
+            color: '#425b8f',
+            fontSize: '14px',
+            fontFamily: "'IBM Plex Sans', 'Spoqa Han Sans Neo', sans-serif"
+          }
         }
       }
     }
-    ws?.send(JSON.stringify(message))
-  }
-
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      const price = data?.body?.output?.last // 해외주식 현재가 필드 예시
-      if (price) {
-        updateChart(price)
+  },
+  computed: {
+    activeTicker() {
+      const value = typeof this.ticker === 'string' ? this.ticker.trim().toUpperCase() : ''
+      return value || 'AAPL'
+    },
+    symbol() {
+      return this.activeTicker
+    },
+    lastPrice() {
+      const data = this.series?.[0]?.data
+      if (!Array.isArray(data) || data.length === 0) return null
+      const latest = data[data.length - 1]
+      return Array.isArray(latest?.y) ? Number(latest.y[3]) : null
+    },
+    lastPriceDisplay() {
+      if (this.lastPrice === null || Number.isNaN(this.lastPrice)) return ''
+      return `${this.lastPrice.toFixed(2)} USD`
+    }
+  },
+  mounted() {
+    this.bootstrapChart()
+  },
+  beforeUnmount() {
+    this.clearRefreshTimer()
+  },
+  watch: {
+    ticker() {
+      this.bootstrapChart()
+    }
+  },
+  methods: {
+    async bootstrapChart() {
+      this.clearRefreshTimer()
+      const loaded = await this.loadHistoricalData(this.activeTicker)
+      if (!loaded) {
+        this.seedDummyData()
       }
-    } catch (e) {
-      console.error("데이터 파싱 오류:", e)
+      this.scheduleRefresh()
+    },
+    async refreshOnce() {
+      await this.loadHistoricalData(this.activeTicker)
+    },
+    scheduleRefresh() {
+      this.clearRefreshTimer()
+      this.refreshTimer = setInterval(this.refreshOnce, this.refreshMs)
+    },
+    clearRefreshTimer() {
+      if (this.refreshTimer) {
+        clearInterval(this.refreshTimer)
+        this.refreshTimer = null
+      }
+    },
+    async loadHistoricalData(symbol = this.activeTicker) {
+      try {
+        const response = await fetch(`${HISTORICAL_ENDPOINT}/${encodeURIComponent(symbol)}`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const payload = await response.json()
+        const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : []
+        const candles = items
+          .map(mapApiRecordToCandle)
+          .filter(Boolean)
+          .sort((a, b) => a.x - b.x)
+
+        if (candles.length) {
+          const trimmed = candles.slice(-this.maxPoints)
+          this.series = [{ data: trimmed }]
+          return true
+        }
+      } catch (error) {
+        console.error('해외 주식 시세를 불러오지 못했습니다.', error)
+      }
+      return false
+    },
+    seedDummyData() {
+      const fallback = DUMMY_CANDLES.map((candle) => ({ ...candle }))
+      this.series = [{ data: fallback }]
     }
   }
-
-  ws.onerror = (err) => console.error("WebSocket 오류:", err)
-  ws.onclose = () => {
-    console.log("WebSocket 연결 종료")
-    ws = null
-  }
 }
-
-function disconnect() {
-  if (!ws) return
-  ws.onopen = null
-  ws.onmessage = null
-  ws.onerror = null
-  ws.onclose = null
-  try {
-    ws.close()
-  } catch (err) {
-    console.error("WebSocket 종료 중 오류:", err)
-  }
-  ws = null
-}
-
-// 차트 갱신
-function updateChart(price) {
-  const now = new Date().toLocaleTimeString()
-
-  chartData.value.labels.push(now)
-  chartData.value.datasets[0].data.push(Number(price))
-
-  if (chartData.value.labels.length > 50) {
-    chartData.value.labels.shift()
-    chartData.value.datasets[0].data.shift()
-  }
-}
-
-onBeforeUnmount(disconnect)
-
-defineExpose({ connect, disconnect })
 </script>
+
+<style scoped>
+.chart-wrapper {
+  background: linear-gradient(145deg, #ffffff 0%, #f0f6ff 100%);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 18px 36px rgba(23, 58, 136, 0.18);
+  border: 1px solid rgba(139, 176, 232, 0.45);
+}
+
+.chart-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.chart-symbol {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #1c2f5c;
+  text-transform: uppercase;
+}
+
+.chart-last-price {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f87ff;
+  background: rgba(31, 135, 255, 0.1);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.chart-wrapper :deep(.apexcharts-tooltip.apexcharts-theme-light) {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(140, 174, 232, 0.6);
+  box-shadow: 0 10px 28px rgba(40, 88, 168, 0.18);
+}
+
+.chart-wrapper :deep(.apexcharts-tooltip-text) {
+  color: #1e2a4a;
+}
+</style>
