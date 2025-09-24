@@ -1,6 +1,6 @@
 <template>
     <section class="card">
-        <div class="back" @click ="goBack"> ← 돌아가기</div>
+        <div class="back" @click="goBack"> ← 돌아가기</div>
 
         <h1>환영해요</h1>
         <p class="sub">오늘도 **stock101**과 함께 똑똑한 투자 여정을 이어가세요. </p>
@@ -18,6 +18,10 @@
                     <span class="input-label">비밀번호 :</span>
                     <input v-model="password" type="password" id="login-password" required
                         class="custom-input flex-item" placeholder="비밀번호를 입력하세요" />
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="terms-agree" v-model="stayLoggedIn" required class="custom-checkbox">
+                    <label for="terms-agree" class="checkbox-label">로그인 상태 유지</label>
                 </div>
 
                 <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
@@ -44,14 +48,15 @@ const password = ref('');
 const submitted = ref(false);
 const authStore = useAuthStore()
 const errorMessage = ref('');
-const goBack = () =>{router.back();}
+const goBack = () => { router.back(); }
+const stayLoggedIn =ref('');
 
 async function submitLogin() {
     submitted.value = true;
     errorMessage.value = '';
 
     //console.log('로그인 시도:', email.value, password.value);
-    const result = await authStore.login(email.value, password.value);
+    const result = await authStore.login(email.value, password.value, stayLoggedIn.value);
 
     if (result.success) {
         router.push('/');
@@ -149,9 +154,9 @@ h1 {
 /* 3. 버튼 및 링크 스타일 */
 /* ==================================== */
 .error-message {
-  color: red;
-  font-weight: bold;
-  font-size: 13px;
+    color: red;
+    font-weight: bold;
+    font-size: 13px;
 }
 
 .login-button {
