@@ -30,7 +30,16 @@
 
     <section v-else class="profile-page__section">
       <div class="profile-page__list profile-page__list--stack">
-        <PostCard v-for="post in profile.posts" :key="post.postId" :post="post" />
+        <CommunityPostCard
+          v-for="post in transformedPosts"
+          :key="post.postId"
+          :post="post"
+          :is-logged-in="!!authStore.userInfo?.accessToken"
+          @select="handlePostSelect"
+          @like="handlePostLike"
+          @comment="handlePostComment"
+          @login-required="handleLoginRequired"
+        />
       </div>
     </section>
   </div>
@@ -44,7 +53,7 @@ import ProfileHeader from '@/components/profile/ProfileHeader.vue'
 import ProfileStats from '@/components/profile/ProfileStats.vue'
 import ProfileTabs from '@/components/profile/ProfileTabs.vue'
 import PredictionSummaryCard from '@/components/predictions/PredictionSummaryCard.vue'
-import PostCard from '@/components/posts/PostCard.vue'
+import CommunityPostCard from '@/components/community/CommunityPostCard.vue'
 import { getUserPredictions, getUserPredictionsById, transformPredictionData } from '@/services/predictionApi'
 import { myProfile, otherProfile, calculatePredictionSummary } from '@/data/profileDemo'
 import axios from 'axios'
@@ -57,7 +66,7 @@ const loading = ref(false)
 const profile = ref({
   user: myProfile.user,
   predictions: [],
-  posts: myProfile.posts
+  posts: [] // Start with empty posts array - will be populated from API
 })
 
 // Computed properties based on route parameters and auth status
@@ -156,6 +165,28 @@ const filteredPredictions = computed(() => {
   return profile.value.predictions
 })
 
+// Transform posts data to match CommunityPostCard expected format
+const transformedPosts = computed(() => {
+  if (!profile.value?.posts) {
+    return []
+  }
+
+  return profile.value.posts.map(post => ({
+    postId: post.postId,
+    stockId: post.stockId || 0,
+    userId: post.userId || profile.value.user.id,
+    opinion: post.opinion || post.tag || 'Buy', // Use API opinion field, fallback to tag, then 'Buy'
+    content: post.content,
+    createdAt: post.createdAt || post.postedAt,
+    userName: post.userName || post.author || profile.value.user.name,
+    likedByMe: post.likedByMe || false,
+    likeCount: post.likeCount || post.likes || 0,
+    commentCount: post.commentCount || post.comments || 0,
+    authorTierCode: post.authorTierCode || profile.value.user.tierCode || 'BRONZE',
+    imageUrl: post.imageUrl || profile.value.user.imageUrl || null
+  }))
+})
+
 // Function to update URL when tab changes
 const updateTabInUrl = (newTab) => {
   const currentPath = route.path
@@ -197,6 +228,33 @@ const fetchUserInfo = async (targetUserId) => {
   }
 }
 
+const fetchUserPosts = async (targetUserId) => {
+  try {
+    console.log('Fetching user posts from API for user:', targetUserId)
+    const headers = {}
+    const token = authStore.userInfo?.accessToken
+    if (token && token !== 'demo-access-token') {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await axios.get(`http://localhost:8080/api/v1/board/user/${targetUserId}`, { headers })
+    const items = Array.isArray(response.data?.items)
+      ? response.data.items
+      : Array.isArray(response.data?.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+          ? response.data
+          : []
+
+    profile.value.posts = items
+    console.log('User posts fetched:', items.length, 'posts')
+  } catch (error) {
+    console.error('Failed to fetch user posts:', error)
+    // Fallback to empty array instead of mock data
+    profile.value.posts = []
+  }
+}
+
 const fetchPredictions = async (targetUserId) => {
   loading.value = true
   console.log('fetchPredictions called with targetUserId:', targetUserId)
@@ -214,17 +272,22 @@ const fetchPredictions = async (targetUserId) => {
     // Fetch user info separately
     await fetchUserInfo(targetUserId)
 
-    // Set posts (mock data for now)
-    if (isOwner.value) {
-      profile.value.posts = myProfile.posts
-    } else {
-      profile.value.posts = otherProfile.posts
-    }
+    // Fetch user posts from API
+    await fetchUserPosts(targetUserId)
   } catch (error) {
     console.error('Failed to fetch predictions:', error)
-    // Fallback to mock data on error
+    // Fallback to mock data on error (only for predictions and user info, not posts)
     const fallbackProfile = (targetUserId === '1') ? myProfile : otherProfile
-    profile.value = { ...fallbackProfile }
+    profile.value = {
+      ...fallbackProfile,
+      posts: [] // Always start with empty posts array
+    }
+    // Still try to fetch posts even if predictions fail
+    try {
+      await fetchUserPosts(targetUserId)
+    } catch (postsError) {
+      console.error('Failed to fetch posts in fallback:', postsError)
+    }
   } finally {
     loading.value = false
   }
@@ -238,6 +301,36 @@ const handleProfileUpdate = (updatedData) => {
     statusMessage: updatedData.statusMessage
   }
   console.log('Profile updated locally:', updatedData)
+}
+
+// Event handlers for CommunityPostCard interactions
+const handlePostSelect = (post) => {
+  console.log('Post selected:', post)
+  // Navigate to post detail if needed
+  router.push({ name: 'CommunityPostDetail', params: { postId: post.postId } })
+}
+
+const handlePostLike = (post) => {
+  console.log('Post liked:', post)
+  // Handle like functionality - could integrate with API in the future
+  const postIndex = profile.value.posts.findIndex(p => p.postId === post.postId)
+  if (postIndex !== -1) {
+    // Toggle like optimistically
+    const originalPost = profile.value.posts[postIndex]
+    originalPost.likes = post.likedByMe ? originalPost.likes - 1 : originalPost.likes + 1
+  }
+}
+
+const handlePostComment = (post) => {
+  console.log('Post comment clicked:', post)
+  // Navigate to post detail for commenting
+  router.push({ name: 'CommunityPostDetail', params: { postId: post.postId } })
+}
+
+const handleLoginRequired = () => {
+  console.log('Login required for post interaction')
+  // Could show a toast or redirect to login
+  alert('로그인이 필요합니다.')
 }
 
 onMounted(() => {

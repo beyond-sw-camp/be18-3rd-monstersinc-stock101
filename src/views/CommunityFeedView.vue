@@ -1,7 +1,7 @@
 ﻿<template>
-  <div class="community-feed">
-    <button type="button" class="community-feed__back" @click="handleBack">Back</button>
-    <h1 class="community-feed__title">커뮤니티 대화</h1>
+  <div class="community-feed" :class="{ embedded }">
+    <button v-if="!embedded" type="button" class="community-feed__back" @click="handleBack">Back</button>
+    <h1 v-if="!embedded" class="community-feed__title">커뮤니티 대화</h1>
 
     <PostComposer
       :opinion="selectedOpinion"
@@ -58,10 +58,15 @@ const props = defineProps({
     type: Number,
     default: null,
   },
+  embedded: {
+    type: Boolean,
+    default: false,
+  },
 })
 // for quick local testing default to 1001 when neither prop nor store provides it
 const TEST_DEFAULT_STOCK_ID = 1001
 
+const { embedded } = props
 
 const selectedOpinion = ref('')
 const composerContent = ref('')
@@ -274,6 +279,12 @@ function handleBack() {
   box-sizing: border-box;
 }
 
+.community-feed.embedded {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+}
+
 .community-feed__back {
   align-self: flex-start;
   border: none;
@@ -299,6 +310,10 @@ function handleBack() {
 @media (max-width: 768px) {
   .community-feed {
     padding: 28px;
+  }
+
+  .community-feed.embedded {
+    padding: 0;
   }
 
   .community-feed__title {

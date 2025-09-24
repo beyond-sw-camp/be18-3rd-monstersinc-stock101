@@ -58,27 +58,7 @@ const basePredictions = [
   },
 ]
 
-const basePosts = [
-  {
-    postId: 1,
-    author: '사용자 이름',
-    postedAt: '2024-09-01T21:29:00',
-    tag: '마켓 리뷰',
-    content:
-      '3분기 실적 발표를 앞둔 빅테크 기업들의 전망을 정리했습니다. 실적 시즌 전 포트폴리오 리밸런싱을 고려하세요.',
-    likes: 42,
-    comments: 15,
-  },
-  {
-    postId: 2,
-    author: '사용자 이름',
-    postedAt: '2024-08-28T18:05:00',
-    tag: '투자 전략',
-    content: '주간 핵심 이슈와 주목할 매크로 지표를 공유드립니다.',
-    likes: 19,
-    comments: 4,
-  },
-]
+// Posts are now fetched from API - no mock data needed
 
 export const myProfile = {
   user: {
@@ -88,7 +68,7 @@ export const myProfile = {
     badge: 'PRO',
   },
   predictions: basePredictions,
-  posts: basePosts,
+  posts: [], // Posts will be fetched from API
 }
 
 export const otherProfile = {
@@ -104,11 +84,7 @@ export const otherProfile = {
     author: '다른 사용자',
     predictionId: prediction.predictionId + 100,
   })),
-  posts: basePosts.map((post) => ({
-    ...post,
-    author: '다른 사용자',
-    postId: post.postId + 100,
-  })),
+  posts: [], // Posts will be fetched from API
 }
 
 export function calculatePredictionSummary(predictions) {
