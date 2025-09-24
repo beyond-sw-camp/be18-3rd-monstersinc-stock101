@@ -5,7 +5,7 @@
 
     <ProfileStats :summary="summary" :active-filter="resultFilter" @filter-change="handleFilterChange" />
 
-    <ProfileHeader :user="profile.user" :is-owner="isOwner" :current-user="currentUser" class="profile-page__header" />
+    <ProfileHeader :user="profile.user" :is-owner="isOwner" :current-user="currentUser" class="profile-page__header" @profile-updated="handleProfileUpdate" />
 
     <ProfileTabs v-model="activeTab" :user="profile.user" />
 
@@ -62,23 +62,13 @@ const profile = ref({
 
 // Computed properties based on route parameters and auth status
 const userId = computed(() => {
-  // Check if we're on the /profile/me route
-  if (route.path === '/profile/me') {
-    return 'me'
-  }
-
-  // Check if we have an ID parameter from /profile/:id
+  // Use the ID parameter from /profile/:id
   if (route.params.id) {
     return route.params.id
   }
 
-  // If no one is logged in, default to user ID 1
-  if (!authStore.userInfo?.accessToken || !authStore.userInfo?.userId) {
-    return '1'
-  }
-
-  // Default fallback
-  return 'me'
+  // Fallback to user ID 1 if no parameter
+  return '1'
 })
 
 const tab = computed(() => route.query.tab || 'predictions')
@@ -88,8 +78,8 @@ const isOwner = computed(() => {
   if (!authStore.userInfo?.accessToken || !authStore.userInfo?.userId) {
     return false
   }
-  // Check if viewing own profile - either /profile/me or /profile/{myId}
-  return userId.value === 'me' || userId.value === String(authStore.userInfo.userId)
+  // Check if viewing own profile by comparing user IDs
+  return userId.value === String(authStore.userInfo.userId)
 })
 
 const pageTitle = computed(() => {
@@ -186,69 +176,23 @@ const updateTabInUrl = (newTab) => {
 
 const fetchUserInfo = async (targetUserId) => {
   try {
-    // Check if user is logged in
-    if (authStore.userInfo?.accessToken) {
-      // User is logged in
-      if (targetUserId === 'me') {
-        // Current user accessing /profile/me - fetch their data using their actual ID
-        const actualUserId = authStore.userInfo.userId
-        console.log('Fetching current user data from API using ID:', actualUserId)
-        const response = await axios.get(`http://localhost:8080/api/v1/users/${actualUserId}`)
-        const userData = response.data.items[0]
-        profile.value.user = {
-          id: userData.userId,
-          name: userData.name,
-          email: userData.email,
-          tierCode: userData.tierCode,
-          statusMessage: userData.statusMessage,
-          imageUrl: userData.imageUrl
-        }
-      } else if (targetUserId === String(authStore.userInfo.userId)) {
-        // Current user accessing /profile/{theirId} - same as above
-        console.log('Fetching current user data from API using ID:', targetUserId)
-        const response = await axios.get(`http://localhost:8080/api/v1/users/${targetUserId}`)
-        const userData = response.data.items[0]
-        profile.value.user = {
-          id: userData.userId,
-          name: userData.name,
-          email: userData.email,
-          tierCode: userData.tierCode,
-          statusMessage: userData.statusMessage,
-          imageUrl: userData.imageUrl
-        }
-      } else {
-        // Other user - fetch from API
-        console.log('Fetching user info from API for user:', targetUserId)
-        const response = await axios.get(`http://localhost:8080/api/v1/users/${targetUserId}`)
-        const userData = response.data.items[0]
-        profile.value.user = {
-          id: userData.userId,
-          name: userData.name,
-          email: userData.email,
-          tierCode: userData.tierCode,
-          statusMessage: userData.statusMessage,
-          imageUrl: userData.imageUrl
-        }
-      }
-    } else {
-      // No one logged in - fetch user info from API
-      console.log('No user logged in, fetching user info from API for user:', targetUserId)
-      const response = await axios.get(`http://localhost:8080/api/v1/users/${targetUserId}`)
-      const userData = response.data.items[0]
-      profile.value.user = {
-        id: userData.userId,
-        name: userData.name,
-        email: userData.email,
-        tierCode: userData.tierCode,
-        statusMessage: userData.statusMessage,
-        imageUrl: userData.imageUrl
-      }
+    // Always fetch user info from API using the actual user ID
+    console.log('Fetching user info from API for user:', targetUserId)
+    const response = await axios.get(`http://localhost:8080/api/v1/users/${targetUserId}`)
+    const userData = response.data.items[0]
+    profile.value.user = {
+      id: userData.userId,
+      name: userData.name,
+      email: userData.email,
+      tierCode: userData.tierCode,
+      statusMessage: userData.statusMessage,
+      imageUrl: userData.imageUrl
     }
     console.log('User info updated:', profile.value.user.name)
   } catch (error) {
     console.error('Failed to fetch user info:', error)
     // Fallback to mock data
-    const fallbackUser = (targetUserId === 'me' || targetUserId === '1') ? myProfile.user : otherProfile.user
+    const fallbackUser = (targetUserId === '0') ? myProfile.user : otherProfile.user1
     profile.value.user = { ...fallbackUser, id: targetUserId }
   }
 }
@@ -259,23 +203,9 @@ const fetchPredictions = async (targetUserId) => {
   try {
     let response
 
-    // Check if user is logged in
-    if (!authStore.userInfo?.accessToken || !authStore.userInfo?.userId) {
-      // No one logged in - fetch data for specific user using axios
-      console.log('No user logged in, fetching predictions for user ID:', targetUserId)
-      response = await axios.get(`http://localhost:8080/api/v1/prediction/user/${targetUserId}`)
-    } else {
-      // User is logged in - use existing API service
-      if (targetUserId === 'me') {
-        // Use the authenticated API call for current user
-        console.log('Fetching predictions for authenticated user via API service')
-        response = await getUserPredictions()
-      } else {
-        // Fetch other user's predictions
-        console.log('Fetching predictions for other user:', targetUserId)
-        response = await getUserPredictionsById(targetUserId)
-      }
-    }
+   // Fetch predictions using direct axios call (for other users or unauthenticated)
+    console.log('Fetching predictions for user:', targetUserId)
+    response = await axios.get(`http://localhost:8080/api/v1/prediction/user/${targetUserId}`)
 
     const transformedPredictions = transformPredictionData(response.data || response)
     profile.value.predictions = transformedPredictions
@@ -293,11 +223,21 @@ const fetchPredictions = async (targetUserId) => {
   } catch (error) {
     console.error('Failed to fetch predictions:', error)
     // Fallback to mock data on error
-    const fallbackProfile = (targetUserId === 'me' || targetUserId === '1') ? myProfile : otherProfile
+    const fallbackProfile = (targetUserId === '1') ? myProfile : otherProfile
     profile.value = { ...fallbackProfile }
   } finally {
     loading.value = false
   }
+}
+
+const handleProfileUpdate = (updatedData) => {
+  // Update the local profile data with the new information
+  profile.value.user = {
+    ...profile.value.user,
+    name: updatedData.name,
+    statusMessage: updatedData.statusMessage
+  }
+  console.log('Profile updated locally:', updatedData)
 }
 
 onMounted(() => {
