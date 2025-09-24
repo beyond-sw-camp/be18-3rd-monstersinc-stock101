@@ -101,7 +101,10 @@ async function loadFeed() {
     if (effectiveStockId != null) params.stockId = effectiveStockId
     const base = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api/v1/board/posts` : '/api/v1/board/posts'
     console.debug('[CommunityFeedView] requesting posts', { url: base, params })
-    const { data } = await axios.get(base, { params, timeout: 8000 })
+  const headers = {}
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+  const { data } = await axios.get(base, { params, timeout: 8000, headers })
     const items = Array.isArray(data?.items)
       ? data.items
       : Array.isArray(data?.data)
