@@ -20,6 +20,10 @@ defineProps({
     type: String,
     required: true,
   },
+  user: {
+    type: Object,
+    default: () => ({}),
+  },
   tabs: {
     type: Array,
     default: () => [

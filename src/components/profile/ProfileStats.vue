@@ -1,6 +1,15 @@
 <template>
   <div class="profile-stats">
-    <div v-for="card in cards" :key="card.key" class="profile-stats__card">
+    <div
+      v-for="card in cards"
+      :key="card.key"
+      class="profile-stats__card"
+      :class="{
+        'profile-stats__card--active': activeFilter === card.filterKey,
+        'profile-stats__card--clickable': card.filterKey !== null
+      }"
+      @click="card.filterKey && $emit('filter-change', card.filterKey)"
+    >
       <span class="profile-stats__label">{{ card.label }}</span>
       <span class="profile-stats__value" :class="card.accent">{{ card.value }}</span>
     </div>
@@ -24,18 +33,25 @@ const props = defineProps({
       )
     },
   },
+  activeFilter: {
+    type: String,
+    default: 'all',
+  },
 })
 
+defineEmits(['filter-change'])
+
 const cards = computed(() => [
-  { key: 'total', label: '전체', value: props.summary.total, accent: 'accent-neutral' },
-  { key: 'success', label: '예측 성공', value: props.summary.success, accent: 'accent-positive' },
-  { key: 'failure', label: '예측 실패', value: props.summary.failure, accent: 'accent-negative' },
-  { key: 'pending', label: '결과 대기', value: props.summary.pending, accent: 'accent-info' },
+  { key: 'total', label: '전체', value: props.summary.total, accent: 'accent-neutral', filterKey: 'all' },
+  { key: 'success', label: '예측 성공', value: props.summary.success, accent: 'accent-positive', filterKey: 'SUCCESS' },
+  { key: 'failure', label: '예측 실패', value: props.summary.failure, accent: 'accent-negative', filterKey: 'FAILURE' },
+  { key: 'pending', label: '결과 대기', value: props.summary.pending, accent: 'accent-info', filterKey: 'PENDING' },
   {
     key: 'accuracy',
     label: '정확도',
     value: `${props.summary.accuracy.toFixed(0)}%`,
     accent: 'accent-neutral',
+    filterKey: null, // 정확도는 필터로 사용하지 않음
   },
 ])
 </script>
@@ -60,6 +76,27 @@ const cards = computed(() => [
   background-color: #fff;
   text-align: center;
   box-shadow: 0 3px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.profile-stats__card--clickable {
+  cursor: pointer;
+}
+
+.profile-stats__card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  border-color: #3b82f6;
+}
+
+.profile-stats__card--active {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.profile-stats__card--active .profile-stats__label {
+  color: #3b82f6;
 }
 
 .profile-stats__label {

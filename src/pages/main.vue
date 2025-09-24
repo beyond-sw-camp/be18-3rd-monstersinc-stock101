@@ -13,7 +13,7 @@
           <BaseButton class="btn btn--primary" @click="goLogin">로그인</BaseButton>
         </template>
         <template v-else>
-          <BaseButton class="btn" @click="goProfile({id:'me'})"> 내 정보</BaseButton>
+          <BaseButton class="btn" @click="goProfile('me')"> 내 정보</BaseButton>
           <BaseButton class="btn btn--primary" @click="goLogout">로그아웃</BaseButton>
         </template>
       </div>
@@ -84,11 +84,12 @@
       <BaseGrid :items="investors" :cols="2" gap="16px" itemKey="id">
         <template #default="{ item }">
           <ProfileCard
-            :avatar="item.avatar"
+            :avatar="item.imageUrl || item.avatar"
             :name="item.name"
             :status="item.status"
-            :verified="item.verified"
-            @click="goProfile(item)"
+            :tier-code="item.tierCode"
+            :userId="item.id"
+            @click="goProfile(item.id)"
           />
         </template>
       </BaseGrid>
@@ -113,11 +114,14 @@ const router = useRouter()
 const authStore = useAuthStore();
 //const isLoggedIn = computed(() =>{ authStore.tokenInfo.accessToken});
 const goLogin = () => router.push({ path: '/auth/login', query: { type: 'login' } })
-//const goLogout = () 
+//const goLogout = ()
 const goRegister = () => router.push({ path: '/auth/register', query: { type: 'register' } })
-const goProfile = (item) => {
-  const path = item.id == 'me' ? '/me' : `/users/${item.id}`
-  router.push({ path })
+const goProfile = (userId) => {
+  if (userId === 'me') {
+    router.push({ path: '/profile/me' })
+  } else {
+    router.push({ path: `/profile/${userId}` })
+  }
 }
 const goStock = (ticker) => router.push({ path: `/stock/${ticker}` })
 const goLogout = ()=>{authStore.logout(); router.push({name:'main'})};// 보던페이지로 변경 필요
@@ -201,10 +205,9 @@ onMounted(async () => {
     investors.value = items.length
       ? items.map((item) => ({
           id: item.userId,
-          avatar: '', 
-          name: item.name, 
-          status: item.tierCode, 
-          verified: true,
+          imageUrl: item.imageUrl || '',
+          name: item.name,
+          status: item.tierCode,
           tierCode: item.tierCode
         }))
       : fallbackNews.map((item) => ({ ...item }))
