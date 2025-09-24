@@ -56,7 +56,7 @@
                 :value="gauge.value"
                 :size="gauge.size"
                 :segments="gaugeColorSegments"
-                :band-labels="bandLabels"
+                :band-labels="gauge.bandLabels ?? bandLabels"
                 :label-distance="gauge.labelDistance"
                 :thickness="gauge.thickness"
                 :radius="gauge.radius"
@@ -92,7 +92,7 @@
     <section class="sec">
       <Chart :ticker="tickerDisplay"/>
       <div class="cta-row">
-        <BaseButton class="cta neg" @click="prediction(false)">
+        <BaseButton class="cta neg" :disabled="!isLoggedIn" @click="prediction(false)">
           <span class="cta-content">
             <span class="cta-icon" aria-hidden="true">▼</span>
             <span class="cta-text">
@@ -101,7 +101,7 @@
             </span>
           </span>
         </BaseButton>
-        <BaseButton class="cta pos" @click="prediction(true)">
+        <BaseButton class="cta pos" :disabled="!isLoggedIn" @click="prediction(true)">
           <span class="cta-content">
             <span class="cta-icon" aria-hidden="true">▲</span>
             <span class="cta-text">
@@ -111,9 +111,11 @@
           </span>
         </BaseButton>
       </div>
-      <p class="hint">[등록하면 주가를 이메일로 보내요]</p>
+      <p class="hint" :class="{ disabled: !isLoggedIn }">
+        {{ isLoggedIn ? '[등록하면 주가를 이메일로 보내요]' : '로그인 후 이용 가능한 기능입니다.' }}
+      </p>
     </section>
-    <communityFeed
+    <CommunityFeed
     :stockId = "stockId"
     />
 
@@ -123,14 +125,17 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
+import { useSessionStore } from '@/stores/session'
 
 import BaseGrid from '@/components/grid/BaseGrid.vue'
 import MetricCard from '@/components/card/variants/MetricCard.vue'
 import SentimentGauge from '@/components/chart/variants/GaugeChart.vue'
 import Pill from '@/components/ui/Pill.vue'
 import Chart from '@/components/chart/Chart.vue'
+import CommunityFeed from '@/views/CommunityFeedView.vue'
 
 const route = useRoute()
+const sessionStore = useSessionStore()
 
 const stockId = ref(route.params.stockId ?? '')
 const stockInfo = ref(null)
@@ -139,6 +144,7 @@ const changeValue = ref(null)
 
 const tickerDisplay = computed(() => stockInfo.value?.stockCode ?? stockInfo.value?.symbol ?? stockInfo.value?.ticker ?? '—')
 const companyDisplay = computed(() => stockInfo.value?.name ?? '—')
+const isLoggedIn = computed(() => sessionStore.isLoggedIn)
 
 const formatCurrency = (value) => {
   const num = Number(value)
@@ -248,7 +254,18 @@ const gaugeStateVariant = (state) => {
 const gaugeConfigs = computed(() => {
   const configs = [
     { key: 'mood', title: '분석가 지표', value: miniLeft.value, size: 360, labelDistance: 46, thickness: 24, radius: '85%', labelsOutside: true },
-    { key: 'retail', title: '개미 지표', value: sentiment.value, size: 480, updateText: '03:35 후에 갱신될 거예요', labelDistance: 52, thickness: 28, radius: '86%', labelsOutside: true },
+    {
+      key: 'retail',
+      title: '개미 지표',
+      value: sentiment.value,
+      size: 420,
+      updateText: '03:35 후에 갱신될 거예요',
+      labelDistance: 50,
+      thickness: 24,
+      radius: '82%',
+      labelsOutside: true,
+      bandLabels: ['Strong Sell', 'Sell', '·', 'Buy', 'Strong Buy']
+    },
     { key: 'news', title: '뉴스 지표', value: miniRight.value, size: 360, labelDistance: 46, thickness: 24, radius: '85%', labelsOutside: true },
   ]
 
@@ -372,6 +389,11 @@ const buildPredictionPayload = (isBullish) => ({
 })
 
 const prediction = async (isBullish) => {
+  console.log(sessionStore)
+  if (!isLoggedIn.value) {
+    alert('로그인 후 이용해 주세요.')
+    return
+  }
   if (!stockId.value || !tickerDisplay.value || tickerDisplay.value === '—') {
     console.warn('예측을 등록할 종목 정보를 확인할 수 없습니다.')
     return
@@ -412,8 +434,17 @@ watch(
 </script>
 
 <style scoped>
-.page{ padding: 28px; display: grid; gap: 28px; background:#f8fafc;
-  border-radius:24px; }
+.page{
+  display:grid;
+  gap:28px;
+  padding:42px;
+  max-width:1020px;
+  width:100%;
+  margin:0 auto;
+  background:#f8fafc;
+  border-radius:24px;
+  box-sizing:border-box;
+}
 
 .hero{ display:flex; }
 .hero-card{
@@ -454,16 +485,24 @@ watch(
 .sec-title{ margin:0; font-size:20px; font-weight:700; color:#0f172a; }
 
 .gauges{
-  display:grid; grid-template-columns: 1fr 1.5fr 1fr; gap:24px;
-  align-items:center; justify-items:stretch;
+  display:grid;
+  grid-template-columns: 1fr 1.35fr 1fr;
+  gap:22px;
+  align-items:center;
+  justify-items:stretch;
 }
 
+
 .gauge-block{
-  display:flex; flex-direction:column; gap:18px;
-  padding:18px 16px 22px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:14px 12px 16px;
   border:1px solid rgba(148,163,184,0.18);
-  border-radius:20px; background:#ffffff;
-  box-shadow:0 12px 24px rgba(15,23,42,0.1);
+  border-radius:18px;
+  background:#ffffff;
+  box-shadow:0 10px 20px rgba(15,23,42,0.1);
+  min-height:0;
 }
 
 .gauge-header{ display:flex; align-items:center; justify-content:space-between; width:100%; gap:12px; }
@@ -472,12 +511,22 @@ watch(
 .gauge-body{
   background:linear-gradient(180deg, rgba(241,245,249,0.45) 0%, rgba(241,245,249,0.12) 100%);
   border-radius:14px;
-  padding:10px 8px;
+  padding:4px 6px 10px;
   display:flex;
   align-items:center;
   justify-content:center;
+  min-height:0;
+  overflow:visible;
 }
-.gauge-chart{ flex:1 1 auto; min-width:220px; display:flex; align-items:center; justify-content:center; }
+.gauge-chart{
+  flex:1 1 auto;
+  min-width:220px;
+  max-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:visible;
+}
 .gauge-update{ margin:0; font-size:0.85rem; color:#6b7280; }
 
 .metrics-grid{
@@ -509,6 +558,18 @@ watch(
   padding:0;
   border:none;
   background:transparent;
+}
+.cta[disabled]{ cursor:not-allowed; }
+.cta[disabled] .cta-content,
+.cta[disabled]:hover .cta-content{
+  filter:grayscale(0.35);
+  opacity:0.55;
+  box-shadow:none;
+  transform:none;
+}
+.cta[disabled] .cta-title,
+.cta[disabled] .cta-sub{
+  color:rgba(71,85,105,0.7);
 }
 .cta:focus-visible .cta-content{
   outline:3px solid rgba(59,130,246,0.45);
@@ -575,13 +636,31 @@ watch(
 }
 .cta.pos .cta-sub{ color:rgba(22,101,52,0.75); }
 
+@media (max-width: 1024px){
+  .page{ padding:34px; }
+  .hero-card{ flex-direction:column; align-items:flex-start; }
+  .hero-main{ max-width:100%; }
+  .hero-price{ align-items:flex-start; text-align:left; }
+  .gauges{ grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); }
+}
+
+@media (max-width: 768px){
+  .page{ padding:24px; border-radius:20px; }
+  .hero-card{ padding:24px; }
+  .hero-title{ font-size:32px; }
+  .hero-company{ font-size:18px; }
+  .gauges{ gap:18px; }
+  .gauge-block{ padding:12px 10px 14px; }
+}
+
 @media (max-width: 720px){
   .cta-row{ grid-template-columns: 1fr; }
   .cta-content{
     padding:18px 20px;
   }
 }
-.hint{ text-align:center; color:#9ca3af; font-size:.9rem; }
+.hint{ text-align:center; color:#9ca3af; font-size:.9rem; transition:color 0.2s ease; }
+.hint.disabled{ color:#ef4444; font-weight:600; }
 
 .op-list{ display:grid; gap:10px; }
 </style>
