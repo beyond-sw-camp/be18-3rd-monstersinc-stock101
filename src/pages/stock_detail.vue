@@ -1,0 +1,459 @@
+<template>
+  <section class="page">
+
+    <!-- 상단: 종목 요약 카드 -->
+    <header class="hero">
+      <div class="hero-card">
+        <div class="hero-main">
+          <div v-if="metaPills.length" class="hero-tags">
+            <Pill
+              v-for="meta in metaPills"
+              :key="meta.key"
+              :text="meta.text"
+              :variant="meta.variant"
+              size="sm"
+              tone="soft"
+              class="hero-pill"
+            />
+          </div>
+          <h1 class="hero-title">{{ tickerDisplay }}</h1>
+          <p class="hero-company">{{ companyDisplay }}</p>
+          <p v-if="headerDescription" class="hero-desc">{{ headerDescription }}</p>
+
+          <div v-if="indicatorPills.length" class="hero-indicators">
+            <div v-for="indicator in indicatorPills" :key="indicator.key" class="indicator-item">
+              <span class="indicator-label">{{ indicator.title }}</span>
+              <Pill :text="indicator.text" :variant="indicator.variant" tone="solid" size="sm" />
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-price">
+          <span class="price-caption">현재가</span>
+          <span class="price-value">{{ priceNowText }}</span>
+          <span v-if="deltaText" :class="['price-delta', 'delta', deltaClass]">{{ deltaText }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 투자 나침반(게이지 3개) -->
+    <section class="sec">
+      <h2 class="sec-title">{{ tickerDisplay }}의 투자 나침반</h2>
+      <div class="gauges">
+        <div v-for="gauge in gaugeConfigs" :key="gauge.key" class="gauge-block">
+          <div class="gauge-header">
+            <h3 class="gauge-title">{{ gauge.title }}</h3>
+            <Pill
+              :text="gauge.state"
+              :variant="gauge.stateVariant"
+              tone="outline"
+              size="sm"
+            />
+          </div>
+          <div class="gauge-body">
+            <div class="gauge-chart">
+              <SentimentGauge
+                :value="gauge.value"
+                :size="gauge.size"
+                :segments="gaugeColorSegments"
+                :band-labels="bandLabels"
+                :label-distance="gauge.labelDistance"
+                :thickness="gauge.thickness"
+                :radius="gauge.radius"
+                :labels-outside="gauge.labelsOutside"
+              />
+            </div>
+          </div>
+          <p v-if="gauge.updateText" class="gauge-update">{{ gauge.updateText }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 재무 지표 -->
+    <section class="sec">
+      <h2 class="sec-title">{{ tickerDisplay }}의 재무 지표</h2>
+      <div class="metrics-grid">
+        <BaseGrid :items="metrics" :cols="4" gap="15px" itemKey="key">
+          <template #default="{ item }">
+            <MetricCard
+              :title="item.title"
+              :subtitle="item.subtitle"
+              :value="item.value"
+              :badgeText="item.badgeText"
+              :badgeVariant="item.variant"
+              pad="lg"
+            />
+          </template>
+        </BaseGrid>
+      </div>
+    </section>
+
+    <!-- 주가 차트 + CTA  -->
+    <!-- <section class="sec">
+      <Chart :ticker= ticker  exchange="NAS"></Chart>
+      <div class="cta-row">
+        <BaseButton class="cta neg" @click="noop">주가가 내려갈 거예요</BaseButton>
+        <BaseButton class="cta pos" @click="noop">주가가 올라갈 거예요</BaseButton>
+      </div>
+      <p class="hint">[등록하면 주가를 이메일로 보내요]</p>
+    </section> -->
+
+
+  </section>
+  </template>
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import axios from 'axios'
+
+import BaseGrid from '@/components/grid/BaseGrid.vue'
+import MetricCard from '@/components/card/variants/MetricCard.vue'
+import SentimentGauge from '@/components/chart/variants/GaugeChart.vue'
+import Pill from '@/components/ui/Pill.vue'
+
+const route = useRoute()
+
+const stockId = ref(route.params.stockId ?? '')
+const stockInfo = ref(null)
+const priceValue = ref(null)
+const changeValue = ref(null)
+
+const tickerDisplay = computed(() => stockInfo.value?.stockCode ?? stockInfo.value?.symbol ?? stockInfo.value?.ticker ?? '—')
+const companyDisplay = computed(() => stockInfo.value?.name ?? '—')
+
+const formatCurrency = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num)
+}
+
+const priceNowText = computed(() => formatCurrency(priceValue.value))
+
+const deltaText = computed(() => {
+  if (!Number.isFinite(changeValue.value)) return ''
+  const pct = changeValue.value
+  const sign = pct > 0 ? '+' : pct < 0 ? '-' : ''
+  const value = Math.abs(pct).toFixed(2)
+  return `${sign}${value}%`
+})
+
+const deltaClass = computed(() => {
+  if (!Number.isFinite(changeValue.value)) return 'flat'
+  if (changeValue.value > 0) return 'pos'
+  if (changeValue.value < 0) return 'neg'
+  return 'flat'
+})
+
+const indicatorMap = {
+  STRONG_BUY: { variant: 'success', label: 'Strong Buy' },
+  BUY: { variant: 'success', label: 'Buy' },
+  HOLD: { variant: 'warning', label: 'Hold' },
+  SELL: { variant: 'danger', label: 'Sell' },
+  STRONG_SELL: { variant: 'danger', label: 'Strong Sell' },
+  POSITIVE: { variant: 'success', label: 'Positive' },
+  NEGATIVE: { variant: 'danger', label: 'Negative' },
+  NEUTRAL: { variant: 'warning', label: 'Neutral' },
+}
+
+const indicatorPills = computed(() => {
+  if (!stockInfo.value) return []
+  const entries = [
+    { key: 'individualIndicator', title: '개미 시그널' },
+    { key: 'analystIndicator', title: '애널리스트' },
+    { key: 'newsIndicator', title: '뉴스' },
+  ]
+  return entries
+    .map(({ key, title }) => {
+      const raw = stockInfo.value?.[key]
+      if (!raw) return null
+      const mapped = indicatorMap[raw] ?? {}
+      return {
+        key,
+        title,
+        text: mapped.label ?? raw,
+        variant: mapped.variant ?? 'info',
+      }
+    })
+    .filter(Boolean)
+})
+
+const metaPills = computed(() => {
+  if (!stockInfo.value) return []
+  const items = []
+  if (tickerDisplay.value && tickerDisplay.value !== '—') items.push({ key: 'ticker', text: tickerDisplay.value, variant: 'info' })
+  if (stockInfo.value.industryName) items.push({ key: 'industry', text: stockInfo.value.industryName, variant: 'neutral' })
+  if (stockInfo.value.sectorName) items.push({ key: 'sector', text: stockInfo.value.sectorName, variant: 'neutral' })
+  return items
+})
+
+const headerDescription = computed(() => {
+  if (!stockInfo.value) return ''
+  const parts = [stockInfo.value.industryName, stockInfo.value.sectorName].filter(Boolean)
+  return parts.join(' · ')
+})
+
+/* 게이지 데모 값 */
+const sentiment = ref(0)
+const miniLeft = ref(0)
+const miniRight = ref(0)
+
+const bandLabels = ['Strong Sell', 'Sell', 'Hold', 'Buy', 'Strong Buy']
+
+const gaugeColorSegments = [
+  [0.2, '#ef4444'],
+  [0.4, '#f97316'],
+  [0.6, '#facc15'],
+  [0.8, '#22c55e'],
+  [1.0, '#16a34a'],
+]
+const gaugeStateText = (value) =>
+  value > 80 ? 'Strong Buy'
+    : value > 60 ? 'Buy'
+    : value > 40 ? 'Hold'
+    : value > 20 ? 'Sell'
+    : 'Strong Sell'
+
+const gaugeStateVariant = (state) => {
+  if (state.includes('Strong Buy')) return 'success'
+  if (state === 'Buy') return 'success'
+  if (state === 'Hold') return 'warning'
+  if (state.includes('Sell')) return 'danger'
+  return 'neutral'
+}
+
+const gaugeConfigs = computed(() => {
+  const configs = [
+    { key: 'mood', title: '분석가 지표', value: miniLeft.value, size: 360, labelDistance: 46, thickness: 24, radius: '85%', labelsOutside: true },
+    { key: 'retail', title: '개미 지표', value: sentiment.value, size: 480, updateText: '03:35 후에 갱신될 거예요', labelDistance: 52, thickness: 28, radius: '86%', labelsOutside: true },
+    { key: 'news', title: '뉴스 지표', value: miniRight.value, size: 360, labelDistance: 46, thickness: 24, radius: '85%', labelsOutside: true },
+  ]
+
+  return configs.map((config) => {
+    const state = gaugeStateText(config.value)
+    return {
+      ...config,
+      state,
+      stateVariant: gaugeStateVariant(state),
+    }
+  })
+})
+
+/* 재무 지표 카드 데이터 */
+const metrics = ref([
+  { key: 'per1', title: 'PER', subtitle: 'Price-to-Earnings Ratio', value: 4.2, badgeText: 'neutral', variant: 'neutral' },
+  { key: 'per2', title: 'PER', subtitle: 'Price-to-Earnings Ratio', value: 4.2, badgeText: 'poor',    variant: 'danger'  },
+  { key: 'ebs',  title: 'EBS', subtitle: 'Earnings Before Split',   value: 4.2, badgeText: 'good',    variant: 'success' },
+])
+const loadprice = async () =>{
+  await axios.get('/api/v1/rest-client/getStockPrice')
+}
+
+const loadStock = async (id) => {
+  if (!id) return
+  try {
+    const { data } = await axios.get(`/api/v1/stock/${id}`)
+    const items = Array.isArray(data?.items) ? data.items : []
+    const stock = items[0]
+    if (!stock) return
+
+    stockInfo.value = stock
+    priceValue.value = Number(stock.price)
+    changeValue.value = Number(stock.fluctuation)
+  } catch (error) {
+    console.error('주식 데이터를 불러오지 못했습니다.', error)
+  }
+}
+const getindicator = async (id) =>{
+  if (!id) return
+  try {
+    const { data } = await axios.get(`/api/v1/indicator-service/news-indicator?stockId=${id}`)
+    const items = Array.isArray(data?.items) ? data.items : []
+    const ni = items[0]
+    if (!ni) return
+    let newsval =  ((ni.negativeCount * 0 ) + (ni.neutralCount * 50 ) + (ni.positiveCount * 100 ))/(ni.negativeCount + ni.neutralCount + ni.positiveCount)
+    miniRight.value = Number(newsval)
+    console.log(miniRight.value)
+  } catch (error) {
+    console.error('주식 데이터를 불러오지 못했습니다.', error)
+  }
+  try {
+    const { data } = await axios.get(`/api/v1/indicator-service/individual-indicator?stockId=${id}`)
+    const items = Array.isArray(data?.items) ? data.items : []
+    const ii = items[0]
+    if (!ii) return
+    let indivval =  ((ii.strongBuy * 100 ) + (ii.buy * 75 ) + (ii.hold * 50 ) + (ii.sell * 25 ) + (ii.strongSell * 0 ))/(ii.strongBuy + ii.buy + ii.hold + ii.sell + ii.strongSell)
+    sentiment.value = Number(indivval)
+    console.log(sentiment.value)
+  } catch (error) {
+    console.error('주식 데이터를 불러오지 못했습니다.', error)
+  }
+  miniLeft.value = (miniRight.value + sentiment.value)/2
+  console.log(miniLeft.value)
+}
+function mapFinancialToMetrics(fin) {
+  return [
+    {
+      key: 'eps',
+      title: 'EPS',
+      subtitle: 'Earnings Per Share',
+      value: fin.eps,
+      badgeText: fin.eps > 0 ? 'good' : 'poor',
+      variant: fin.eps > 0 ? 'success' : 'danger'
+    },
+    {
+      key: 'bps',
+      title: 'BPS',
+      subtitle: 'Book Value Per Share',
+      value: fin.bps,
+      badgeText: 'neutral',
+      variant: 'neutral'
+    },
+    {
+      key: 'roe',
+      title: 'ROE',
+      subtitle: 'Return on Equity',
+      value: fin.roe,
+      badgeText: fin.roe > 1 ? 'good' : 'poor',
+      variant: fin.roe > 1 ? 'success' : 'danger'
+    },
+    {
+      key: 'roa',
+      title: 'ROA',
+      subtitle: 'Return on Assets',
+      value: fin.roa,
+      badgeText: fin.roa > 0.5 ? 'good' : 'poor',
+      variant: fin.roa > 0.5 ? 'success' : 'danger'
+    }
+  ]
+}
+const getfinance = async(id) =>{
+  if (!id) return
+  try {
+    const { data } = await axios.get(`/api/v1/indicator-service/financial-indicator?stockId=${id}`)
+    const items = Array.isArray(data?.items) ? data.items : []
+    const fi = items[0]
+    if (!fi) return
+    metrics.value = mapFinancialToMetrics(fi)
+    console.log(metrics.value)
+  } catch (error) {
+    console.error('주식 데이터를 불러오지 못했습니다.', error)
+  }
+}
+
+onMounted(() => {
+  loadprice()
+  loadStock(stockId.value)
+  getindicator(stockId.value)
+  getfinance(stockId.value)
+})
+
+watch(
+  () => route.params.stockId,
+  (next) => {
+    if (typeof next === 'undefined') return
+    stockId.value = next
+    loadStock(next)
+  }
+)
+</script>
+
+<style scoped>
+.page{ padding: 28px; display: grid; gap: 28px; background:#f8fafc;
+  border-radius:24px; }
+
+.hero{ display:flex; }
+.hero-card{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:32px;
+  width:100%; padding:32px; border-radius:30px;
+  background:linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(14,165,233,0.18) 50%, rgba(236,72,153,0.16) 100%);
+  border:1px solid rgba(148,163,184,0.18);
+  box-shadow:0 28px 50px rgba(15,23,42,0.18);
+  position:relative; overflow:hidden;
+}
+
+.hero-card::after{
+  content:""; position:absolute; inset:-140px -160px auto auto; width:420px; height:420px;
+  background:radial-gradient(circle at center, rgba(59,130,246,0.28), transparent 65%);
+  pointer-events:none; mix-blend-mode:screen;
+}
+
+.hero-main{ display:flex; flex-direction:column; gap:16px; max-width:60%; position:relative; z-index:1; }
+.hero-tags{ display:flex; flex-wrap:wrap; gap:8px; }
+.hero-pill{ box-shadow:0 4px 16px rgba(37,99,235,0.18); }
+.hero-title{ margin:0; font-size:40px; font-weight:800; color:#0f172a; letter-spacing:-0.01em; }
+.hero-company{ margin:0; font-size:22px; font-weight:600; color:#1f2937; }
+.hero-desc{ margin:0; font-size:0.95rem; color:#475569; }
+
+.hero-indicators{ display:flex; flex-wrap:wrap; gap:12px 20px; }
+.indicator-item{ display:flex; align-items:center; gap:8px; }
+.indicator-label{ font-size:0.85rem; font-weight:600; color:#334155; }
+
+.hero-price{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:flex-end; gap:6px; text-align:right; }
+.price-caption{ font-size:0.85rem; color:#475569; }
+.price-value{ font-size:36px; font-weight:800; color:#0f172a; }
+.price-delta{ font-size:1rem; font-weight:700; }
+
+.delta{ font-weight:600; }
+.delta.pos{ color:#16a34a; } .delta.neg{ color:#dc2626; } .delta.flat{ color:#4b5563; }
+
+.sec{ display:grid; gap:16px; }
+.sec-title{ margin:0; font-size:20px; font-weight:700; color:#0f172a; }
+
+.gauges{
+  display:grid; grid-template-columns: 1fr 1.5fr 1fr; gap:24px;
+  align-items:center; justify-items:stretch;
+}
+
+.gauge-block{
+  display:flex; flex-direction:column; gap:18px;
+  padding:18px 16px 22px;
+  border:1px solid rgba(148,163,184,0.18);
+  border-radius:20px; background:#ffffff;
+  box-shadow:0 12px 24px rgba(15,23,42,0.1);
+}
+
+.gauge-header{ display:flex; align-items:center; justify-content:space-between; width:100%; gap:12px; }
+.gauge-title{ margin:0; font-size:18px; font-weight:700; color:#111827; }
+
+.gauge-body{
+  background:linear-gradient(180deg, rgba(241,245,249,0.45) 0%, rgba(241,245,249,0.12) 100%);
+  border-radius:14px;
+  padding:10px 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.gauge-chart{ flex:1 1 auto; min-width:220px; display:flex; align-items:center; justify-content:center; }
+.gauge-update{ margin:0; font-size:0.85rem; color:#6b7280; }
+
+.metrics-grid{
+  --metric-card-min-height: 0px;
+}
+.metrics-grid :deep(.metric-card){
+  height:100%;
+  background:linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.96) 100%);
+  border:1px solid rgba(148,163,184,0.22);
+  box-shadow:0 10px 20px rgba(15,23,42,0.08);
+  display:flex;
+  flex-direction:column;
+}
+.metrics-grid :deep(.metric-card .row.head){ margin-bottom:12px; }
+.metrics-grid :deep(.metric-card .title){ font-size:18px; }
+.metrics-grid :deep(.metric-card .content){ min-height:0; gap:12px; }
+.metrics-grid :deep(.metric-card .subtitle){ font-size:0.85rem; color:#64748b; }
+.metrics-grid :deep(.metric-card .value){ font-size:1.4rem; font-weight:700; color:#0f172a; }
+
+.cta-row{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:10px; }
+.cta{ width:100%; }
+.cta.neg{ background:#fde2e2; border:1px solid #f5b5b5; color:#991b1b; }
+.cta.pos{ background:#dff7e7; border:1px solid #bfe7cb; color:#166534; }
+
+.hint{ text-align:center; color:#9ca3af; font-size:.9rem; }
+
+.op-list{ display:grid; gap:10px; }
+</style>

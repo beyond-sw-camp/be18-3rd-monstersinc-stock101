@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="comment-composer" :class="{ 'comment-composer--locked': !isLoggedIn }">
     <div class="comment-composer__avatar" aria-hidden="true"></div>
     <div class="comment-composer__body">
@@ -8,12 +8,14 @@
         class="comment-composer__input"
         :value="modelValue"
         :readonly="!isLoggedIn || disabled"
-        :placeholder="isLoggedIn ? '의견을 남겨주세요' : '로그인 후 이용해주세요'"
+        :placeholder="isLoggedIn ? 'Add a comment' : '\ub85c\uadf8\uc778 \ud6c4 \uc774\uc6a9\ud574 \uc8fc\uc138\uc694'"
+        @mousedown="handleLockedInteraction"
+        @focus="handleFocus"
         @input="handleInput"
         @keyup.enter="handleSubmit"
       />
       <button type="button" class="comment-composer__button" :disabled="!canSubmit" @click="handleSubmit">
-        등록하기
+        Comment
       </button>
     </div>
   </div>
@@ -41,14 +43,32 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:modelValue', 'submit', 'exceed'])
+const emit = defineEmits(['update:modelValue', 'submit', 'exceed', 'login-required'])
 
 const inputRef = ref(null)
 
 const canSubmit = computed(() => props.isLoggedIn && !props.disabled && props.modelValue.trim().length > 0)
 
+function emitLoginRequired() {
+  emit('login-required')
+}
+
+function handleLockedInteraction() {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+  }
+}
+
+function handleFocus(event) {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+    event?.target?.blur?.()
+  }
+}
+
 function handleInput(event) {
   if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
     event.target.value = props.modelValue
     return
   }
@@ -63,14 +83,16 @@ function handleInput(event) {
 }
 
 function handleSubmit() {
+  if (!props.isLoggedIn) {
+    emitLoginRequired()
+    return
+  }
   if (!canSubmit.value) return
   emit('submit')
 }
 
 function focus() {
-  if (inputRef.value) {
-    inputRef.value.focus()
-  }
+  inputRef.value?.focus?.()
 }
 
 defineExpose({ focus })

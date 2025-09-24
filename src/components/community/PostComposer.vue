@@ -1,7 +1,7 @@
 ﻿<template>
   <section class="post-composer">
     <header class="post-composer__header">
-      <h2 class="post-composer__title">지금 당신의 생각을 남겨보세요</h2>
+      <h2 class="post-composer__title">Share your view</h2>
     </header>
 
     <OpinionSelector v-model="opinionProxy" :disabled="!isLoggedIn || disabled" />
@@ -10,10 +10,12 @@
       <textarea
         ref="textareaRef"
         class="post-composer__textarea"
-        :placeholder="isLoggedIn ? '내용을 입력해주세요' : '로그인 후 이용해주세요'"
+        :placeholder="isLoggedIn ? 'Write what is on your mind' : '\ub85c\uadf8\uc778 \ud6c4 \uc774\uc6a9\ud574 \uc8fc\uc138\uc694'"
         :value="content"
         :maxlength="maxLength"
         :readonly="disabled || !isLoggedIn"
+        @mousedown="handleLockedInteraction"
+        @focus="handleFocus"
         @input="handleInput"
       ></textarea>
     </div>
@@ -21,7 +23,7 @@
     <footer class="post-composer__footer">
       <span class="post-composer__counter">{{ content.length }}/{{ maxLength }}</span>
       <button type="button" class="post-composer__submit" :disabled="!canSubmit" @click="handleSubmit">
-        등록하기
+        Post
       </button>
     </footer>
   </section>
@@ -54,7 +56,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:opinion', 'update:content', 'submit', 'exceed'])
+const emit = defineEmits(['update:opinion', 'update:content', 'submit', 'exceed', 'login-required'])
 
 const textareaRef = ref(null)
 
@@ -69,8 +71,26 @@ const canSubmit = computed(
   () => props.isLoggedIn && !props.disabled && props.opinion && props.content.trim().length > 0
 )
 
+function emitLoginRequired() {
+  emit('login-required')
+}
+
+function handleLockedInteraction() {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+  }
+}
+
+function handleFocus(event) {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+    event?.target?.blur?.()
+  }
+}
+
 function handleInput(event) {
   if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
     event.target.value = props.content
     return
   }
@@ -88,6 +108,10 @@ function handleInput(event) {
 }
 
 function handleSubmit() {
+  if (!props.isLoggedIn) {
+    emitLoginRequired()
+    return
+  }
   if (!canSubmit.value) return
   emit('submit')
 }

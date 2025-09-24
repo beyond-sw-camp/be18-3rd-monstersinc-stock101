@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="community-post-detail">
-    <BaseBackButton class="community-post-detail__back" @click="handleBack">돌아가기</BaseBackButton>
+    <BaseBackButton class="community-post-detail__back" @click="handleBack">Back</BaseBackButton>
 
     <article v-if="post" class="community-post-detail__card">
       <div class="community-post-detail__top">
@@ -32,9 +32,9 @@
           :class="{ 'community-post-detail__icon--liked': post.likedByMe }"
           @click="handleToggleLike"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="22" height="22" viewBox="0 0 28 26" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
-              d="M12 21s-5.286-4.117-7.607-6.735C2.5 12.178 2 9.488 3.414 7.414 4.828 5.34 7.512 4.5 9.5 6.5l1.5 1.5 1.5-1.5c1.988-2 4.672-1.16 6.086.914 1.414 2.074.914 4.764-1.979 6.851C17.286 16.883 12 21 12 21z"
+              d="M14 23.25s-7.45-5.74-10.6-9.37c-3.15-3.63-2.63-8.6 1.1-11.01 2.68-1.73 6.05-.82 7.98 1.73 1.93-2.55 5.3-3.46 7.98-1.73 3.73 2.41 4.25 7.38 1.1 11.01-3.15 3.63-10.6 9.37-10.6 9.37z"
               :fill="post.likedByMe ? '#f05665' : 'none'"
               :stroke="post.likedByMe ? '#f05665' : '#6b7280'"
               stroke-width="1.6"
@@ -60,13 +60,14 @@
     </article>
 
     <section class="community-post-detail__comments">
-      <h2 class="community-post-detail__section-title">의견을 남겨보세요.</h2>
+      <h2 class="community-post-detail__section-title">Join the discussion</h2>
       <CommentComposer
         ref="composerRef"
         v-model="commentContent"
         :is-logged-in="isLoggedIn"
         @submit="handleSubmitComment"
         @exceed="notifyMaxChars"
+        @login-required="requireLogin"
       />
 
       <div class="community-post-detail__comment-list">
@@ -84,14 +85,14 @@
 </template>
 
 <script setup>
+import axios from 'axios'
+import BaseBackButton from '@/components/shared/BaseBackButton.vue'
 import CommentComposer from '@/components/community/CommentComposer.vue'
 import CommunityCommentItem from '@/components/community/CommunityCommentItem.vue'
-import BaseBackButton from '@/components/shared/BaseBackButton.vue'
 import { useCommunityPostStore } from '@/stores/communityPost'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
-import axios from 'axios'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -169,7 +170,9 @@ async function loadPostData(postId) {
   } catch (error) {
     console.error('[CommunityPostDetailView] loadPostData failed', error)
     postStore.error = error
-    toastStore.pushToast({ message: '게시글을 불러오지 못했습니다.', tone: 'error' })
+    if (isLoggedIn.value) {
+      toastStore.pushToast({ message: 'Unable to load the post.', tone: 'error' })
+    }
     await postStore.load(postId)
   } finally {
     postStore.isLoading = false
@@ -188,11 +191,11 @@ onUnmounted(() => {
 })
 
 function requireLogin() {
-  toastStore.pushToast({ message: '로그인 후 이용해 주세요.', tone: 'info' })
+  toastStore.pushToast({ message: LOGIN_REQUIRED_MESSAGE, tone: 'info' })
 }
 
 function notifyMaxChars() {
-  toastStore.pushToast({ message: '최대 300자까지 입력할 수 있어요.', tone: 'error' })
+  toastStore.pushToast({ message: 'You can enter up to 300 characters.', tone: 'error' })
 }
 
 function focusCommentComposer() {
@@ -214,9 +217,9 @@ async function handleSubmitComment() {
       parentCommentId: null,
     })
     commentContent.value = ''
-    toastStore.pushToast({ message: '댓글이 등록되었어요.', tone: 'success' })
+    toastStore.pushToast({ message: 'Comment added.', tone: 'success' })
   } catch (error) {
-    toastStore.pushToast({ message: '댓글 등록에 실패했습니다.', tone: 'error' })
+    toastStore.pushToast({ message: 'Failed to add comment.', tone: 'error' })
     console.error(error)
   }
 }
@@ -234,9 +237,9 @@ async function handleSubmitReply(payload) {
       parentCommentId: payload.parentCommentId,
     })
     payload.onComplete?.()
-    toastStore.pushToast({ message: '답글이 등록되었어요.', tone: 'success' })
+    toastStore.pushToast({ message: 'Reply added.', tone: 'success' })
   } catch (error) {
-    toastStore.pushToast({ message: '답글 등록에 실패했습니다.', tone: 'error' })
+    toastStore.pushToast({ message: 'Failed to add reply.', tone: 'error' })
     console.error(error)
   }
 }
@@ -251,11 +254,11 @@ async function handleToggleLike() {
     const wasLiked = post.value.likedByMe
     await postStore.toggleLike(post.value.postId)
     toastStore.pushToast({
-      message: wasLiked ? '좋아요가 취소되었어요.' : '좋아요가 반영되었어요.',
+      message: wasLiked ? 'Like removed.' : 'Like added.',
       tone: wasLiked ? 'info' : 'success',
     })
   } catch (error) {
-    toastStore.pushToast({ message: '좋아요 처리에 실패했습니다.', tone: 'error' })
+    toastStore.pushToast({ message: 'Failed to update like.', tone: 'error' })
     console.error(error)
   }
 }
@@ -432,6 +435,3 @@ function handleBack() {
   }
 }
 </style>
-
-
-

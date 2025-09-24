@@ -1,4 +1,4 @@
-﻿import { mockCommunityComments, mockCommunityPosts } from '@/data/communityMock'
+import { mockCommunityComments, mockCommunityPosts } from '@/data/communityMock'
 import axios from 'axios'
 
 const BASE_URL = 'http://localhost:8080'
@@ -34,41 +34,68 @@ function unwrapCandidates(payload) {
 }
 
 function toResponse(payload, fallbackCode = 200, fallbackMessage = 'OK') {
-  // 백엔드가 ItemsResponseDto 형태
-  // { code, message, items } 를 기대. 없으면 best effort로 맞춰줌
-  if (payload && Array.isArray(payload.items)) return payload;
-  if (Array.isArray(payload)) return { code, message, items: payload };
-  if (payload && typeof payload === 'object') return { code, message, items: [payload] };
-  return { code, message, items: [] };
+  if (!payload) {
+    return { code: fallbackCode, message: fallbackMessage, items: [] }
+  }
+  const items = unwrapCandidates(payload)
+  return {
+    code: payload?.code ?? fallbackCode,
+    message: payload?.message ?? fallbackMessage,
+    items,
+  }
 }
 
+function isClientError(error) {
+  const status = error?.status ?? error?.response?.status
+  return typeof status === 'number' && status >= 400 && status < 500
+}
+
+function createBadRequestError(message) {
+  const error = new Error(message)
+  error.status = 400
+  return error
+}
 async function request(path, { method = 'GET', token, body, params } = {}) {
   const headers = {}
   if (token) {
     headers.Authorization = `Bearer ${token}`
   }
-  if (body) {
-    headers['Content-Type'] = 'application/json'
-  }
-  const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-  const response = await fetch(`${BASE_URL}${path}${query}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
 
-  if (!response.ok) {
-    const error = new Error(`Request failed with status ${response.status}`)
+  try {
+    const response = await apiClient.request({
+      url: path,
+      method,
+      headers,
+      data: body,
+      params,
+      validateStatus: () => true,
+    })
+
+    if (response.status === 204) {
+      return { code: response.status, message: 'No Content', items: [] }
+    }
+
+    if (response.status >= 200 && response.status < 300) {
+      return response.data ?? {}
+    }
+
+    const error = new Error(
+      response.data?.message ?? `Request failed with status ${response.status}`
+    )
     error.status = response.status
+    error.response = response
+    throw error
+  } catch (error) {
+    if (error.response) {
+      const wrapped = new Error(
+        error.response.data?.message ?? `Request failed with status ${error.response.status}`
+      )
+      wrapped.status = error.response.status
+      wrapped.response = error.response
+      throw wrapped
+    }
     throw error
   }
-
-  if (response.status === 204) {
-    return { code: response.status, message: 'No Content', items: [] }
-  }
-
-  const data = await response.json().catch(() => ({}))
-  return data
 }
 
 export async function fetchPosts(options = {}) {
@@ -117,12 +144,27 @@ export async function toggleLike(postId, options = {}) {
   }
 }
 
-export async function createPost(payload, options = {}) {
-  const body = {
-    stockId: payload.stockId ?? 1001,
-    opinion: payload.opinion,
-    content: payload.content,
+export async function createPost(payload = {}, options = {}) {
+  const rawStockId = payload.stockId
+  const normalizedStockId =
+    typeof rawStockId === 'number' ? rawStockId : Number(rawStockId)
+  if (rawStockId == null || rawStockId === '' || Number.isNaN(normalizedStockId)) {
+    throw createBadRequestError('STOCK_ID_REQUIRED')
   }
+  if (!payload.opinion) {
+    throw createBadRequestError('OPINION_REQUIRED')
+  }
+  const trimmedContent = payload.content?.trim?.() ?? ''
+  if (!trimmedContent) {
+    throw createBadRequestError('CONTENT_REQUIRED')
+  }
+
+  const body = {
+    stockId: normalizedStockId,
+    opinion: payload.opinion,
+    content: trimmedContent,
+  }
+
   try {
     const response = await request('/api/v1/board/posts', {
       method: 'POST',
@@ -135,15 +177,18 @@ export async function createPost(payload, options = {}) {
     }
     return normalized
   } catch (error) {
+    if (isClientError(error)) {
+      throw error
+    }
     console.warn('[communityApi] createPost fallback:', error)
     const newPost = {
       postId: postSequence++,
-      stockId: body.stockId,
+      stockId: normalizedStockId,
       userId: payload.userId ?? 0,
       opinion: payload.opinion,
-      content: payload.content,
+      content: trimmedContent,
       createdAt: new Date().toISOString(),
-      userName: payload.userName ?? '사용자',
+      userName: payload.userName ?? '�����',
       likedByMe: false,
       likeCount: 0,
       commentCount: 0,
@@ -220,7 +265,7 @@ export async function createComment(postId, payload, options = {}) {
       postId,
       userId: payload.userId ?? 0,
       parentCommentId: payload.parentCommentId ?? null,
-      userName: payload.userName ?? '사용자',
+      userName: payload.userName ?? '�����',
       authorTierCode: payload.authorTierCode ?? 'BRONZE',
       // totalCommentCount should reflect the total number of comments for the post
       totalCommentCount: 0,
@@ -247,6 +292,5 @@ export async function createComment(postId, payload, options = {}) {
     return buildResponse(201, 'Created', [newComment])
   }
 }
-
 
 

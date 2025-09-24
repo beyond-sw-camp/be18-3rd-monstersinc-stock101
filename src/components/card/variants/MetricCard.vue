@@ -133,10 +133,15 @@ const props = defineProps({
 
 <style scoped>
 /* BaseCard가 테두리/패딩을 담당 — 여긴 내부 레이아웃만 */
-.content { display: flex; flex-direction: column; min-height: 150px; }
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: var(--metric-card-min-height, 130px);
+}
 .row.head{ display:flex; justify-content:space-between; align-items:center; gap:12px; }
-.title{ font-weight:700; font-size:20px; color:#111827; letter-spacing:.01em; }
-.subtitle{ color:#6b7280; margin-top:4px; }
+.title{ font-weight:700; font-size:18px; color:#0f172a; letter-spacing:.01em; }
+.subtitle{ color:#6b7280; }
 .spacer{ flex:1 1 auto; }
-.value{ margin-top:4px; }
+.value{ display:flex; align-items:flex-end; }
 </style>

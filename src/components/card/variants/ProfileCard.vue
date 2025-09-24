@@ -27,6 +27,14 @@
         <div class="name-line">
           <span class="name">{{ name }}</span>
           <slot name="badge">
+            <img
+              v-if="tierBadgeSrc"
+              :src="tierBadgeSrc"
+              :alt="tierBadgeAlt"
+              class="badge-image"
+              loading="lazy"
+              decoding="async"
+            />
             <span v-if="verified" class="badge" aria-label="verified">🏅</span>
           </slot>
         </div>
@@ -40,7 +48,7 @@
 <script setup>
 import { computed } from 'vue'
 import BaseCard from '../BaseCard.vue'
-
+import { getTierBadgeSrc } from '@/utils/tierBadge'
 /**
  * @component UserCard
  * @description
@@ -89,6 +97,7 @@ import BaseCard from '../BaseCard.vue'
 const props = defineProps({
   avatar:   { type: String, default: '' },
   name:     { type: String, required: true },
+  tierCode:   { type: String, default: '' },
   status:   { type: String, default: '' },
   verified: { type: Boolean, default: false },
   alt:      { type: String, default: '' },
@@ -115,6 +124,13 @@ const props = defineProps({
  * - 없으면 "{name}의 아바타" 자동 생성
  */
 const altText = computed(() => props.alt || `${props.name}의 아바타`)
+const tierBadgeSrc = computed(() => {
+  if (props.tierCode === undefined || props.tierCode === null || props.tierCode === '') {
+    return ''
+  }
+  return getTierBadgeSrc(props.tierCode)
+})
+const tierBadgeAlt = computed(() => `${props.name}의 등급 배지`)
 </script>
 
 <style scoped>
@@ -133,7 +149,11 @@ const altText = computed(() => props.alt || `${props.name}의 아바타`)
 
 .avatar{ width:100%; height:100%; object-fit:cover; display:block; }
 .avatar.placeholder{ background:#e5e7eb; }
-
+.badge-image{
+  width:24px;
+  height:24px;
+  object-fit:contain;
+}
 .body{ min-width:0; padding-right:8px; }
 .name-line{ display:flex; align-items:center; gap:6px; }
 .name{ font-weight:700; color:#111827; }
