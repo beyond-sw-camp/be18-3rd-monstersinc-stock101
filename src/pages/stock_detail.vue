@@ -88,16 +88,34 @@
       </div>
     </section>
 
-    <!-- 주가 차트 + CTA  -->
-    <!-- <section class="sec">
-      <Chart :ticker= ticker  exchange="NAS"></Chart>
+    <!--차트 및 주가 예측-->
+    <section class="sec">
+      <Chart :ticker="tickerDisplay"/>
       <div class="cta-row">
-        <BaseButton class="cta neg" @click="noop">주가가 내려갈 거예요</BaseButton>
-        <BaseButton class="cta pos" @click="noop">주가가 올라갈 거예요</BaseButton>
+        <BaseButton class="cta neg" @click="prediction(false)">
+          <span class="cta-content">
+            <span class="cta-icon" aria-hidden="true">▼</span>
+            <span class="cta-text">
+              <span class="cta-title">주가가 내려갈 거예요</span>
+              <span class="cta-sub">하락 예상 시 기록하고 추이를 추적해요</span>
+            </span>
+          </span>
+        </BaseButton>
+        <BaseButton class="cta pos" @click="prediction(true)">
+          <span class="cta-content">
+            <span class="cta-icon" aria-hidden="true">▲</span>
+            <span class="cta-text">
+              <span class="cta-title">주가가 올라갈 거예요</span>
+              <span class="cta-sub">상승 신호를 느꼈다면 지금 남겨보세요</span>
+            </span>
+          </span>
+        </BaseButton>
       </div>
       <p class="hint">[등록하면 주가를 이메일로 보내요]</p>
-    </section> -->
-
+    </section>
+    <communityFeed
+    :stockId = "stockId"
+    />
 
   </section>
   </template>
@@ -110,6 +128,7 @@ import BaseGrid from '@/components/grid/BaseGrid.vue'
 import MetricCard from '@/components/card/variants/MetricCard.vue'
 import SentimentGauge from '@/components/chart/variants/GaugeChart.vue'
 import Pill from '@/components/ui/Pill.vue'
+import Chart from '@/components/chart/Chart.vue'
 
 const route = useRoute()
 
@@ -344,6 +363,35 @@ const getfinance = async(id) =>{
     console.error('주식 데이터를 불러오지 못했습니다.', error)
   }
 }
+const buildPredictionPayload = (isBullish) => ({
+  stockId: stockId.value,
+  ticker: tickerDisplay.value,
+  expectation: isBullish ? 'UP' : 'DOWN',
+  // TODO: confidence, memo, userId 등을 서버 스펙에 맞게 채워주세요.
+  timestamp: new Date().toISOString()
+})
+
+const prediction = async (isBullish) => {
+  if (!stockId.value || !tickerDisplay.value || tickerDisplay.value === '—') {
+    console.warn('예측을 등록할 종목 정보를 확인할 수 없습니다.')
+    return
+  }
+
+  const payload = buildPredictionPayload(isBullish)
+
+  try {
+    await axios.post('/api/v1/prediction/create', payload, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`
+        // TODO: 필요 시 Content-Type 등 추가 헤더를 정의하세요.
+      }
+    })
+    // TODO: 성공 후 사용자 알림, UI 갱신 등 추가 행동을 정의하세요.
+  } catch (error) {
+    console.error('예측을 등록하지 못했습니다.', error)
+    // TODO: 에러 토스트, 재시도 로직 등 필요 시 구현하세요.
+  }
+}
 
 onMounted(() => {
   loadprice()
@@ -448,11 +496,90 @@ watch(
 .metrics-grid :deep(.metric-card .subtitle){ font-size:0.85rem; color:#64748b; }
 .metrics-grid :deep(.metric-card .value){ font-size:1.4rem; font-weight:700; color:#0f172a; }
 
-.cta-row{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:10px; }
-.cta{ width:100%; }
-.cta.neg{ background:#fde2e2; border:1px solid #f5b5b5; color:#991b1b; }
-.cta.pos{ background:#dff7e7; border:1px solid #bfe7cb; color:#166534; }
+.cta-row{
+  margin-top:20px;
+  padding:12px 0;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(260px,1fr));
+  gap:16px;
+}
+.cta{
+  width:100%;
+  padding:0;
+  border:none;
+  background:transparent;
+}
+.cta:focus-visible .cta-content{
+  outline:3px solid rgba(59,130,246,0.45);
+  outline-offset:3px;
+}
+.cta-content{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:18px;
+  width:100%;
+  padding:20px 24px;
+  border-radius:20px;
+  transition:transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:0 14px 24px rgba(15,23,42,0.08);
+}
+.cta:hover .cta-content{
+  transform:translateY(-4px);
+  box-shadow:0 20px 38px rgba(15,23,42,0.16);
+}
+.cta-icon{
+  flex:0 0 48px;
+  height:48px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.35rem;
+  font-weight:700;
+  background:rgba(255,255,255,0.38);
+}
+.cta-text{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.cta-title{
+  font-size:1.05rem;
+  font-weight:700;
+  letter-spacing:-0.01em;
+}
+.cta-sub{
+  font-size:0.9rem;
+  color:rgba(15,23,42,0.65);
+}
+.cta.neg .cta-content{
+  background:linear-gradient(135deg, rgba(254,226,226,0.95) 0%, rgba(252,165,165,0.85) 100%);
+  border:1px solid rgba(248,113,113,0.45);
+  color:#9f1239;
+}
+.cta.neg .cta-icon{
+  color:#be123c;
+  background:rgba(255,255,255,0.58);
+}
+.cta.neg .cta-sub{ color:rgba(153,27,27,0.75); }
+.cta.pos .cta-content{
+  background:linear-gradient(135deg, rgba(217,249,255,0.95) 0%, rgba(187,247,208,0.9) 100%);
+  border:1px solid rgba(52,211,153,0.45);
+  color:#047857;
+}
+.cta.pos .cta-icon{
+  color:#0f766e;
+  background:rgba(255,255,255,0.6);
+}
+.cta.pos .cta-sub{ color:rgba(22,101,52,0.75); }
 
+@media (max-width: 720px){
+  .cta-row{ grid-template-columns: 1fr; }
+  .cta-content{
+    padding:18px 20px;
+  }
+}
 .hint{ text-align:center; color:#9ca3af; font-size:.9rem; }
 
 .op-list{ display:grid; gap:10px; }
