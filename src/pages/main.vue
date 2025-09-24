@@ -13,7 +13,7 @@
           <BaseButton class="btn btn--primary" @click="goLogin">로그인</BaseButton>
         </template>
         <template v-else>
-          <BaseButton class="btn" @click="goProfile('me')"> 내 정보</BaseButton>
+          <BaseButton class="btn" @click="goProfile(authStore.userInfo.userId)"> 내 정보</BaseButton>
           <BaseButton class="btn btn--primary" @click="goLogout">로그아웃</BaseButton>
         </template>
       </div>
@@ -117,8 +117,9 @@ const goLogin = () => router.push({ path: '/auth/login', query: { type: 'login' 
 //const goLogout = ()
 const goRegister = () => router.push({ path: '/auth/register', query: { type: 'register' } })
 const goProfile = (userId) => {
-  if (userId === 'me') {
-    router.push({ path: '/profile/me' })
+  // If 'me', use the actual current user ID from authStore
+  if (userId === 'me' && authStore.userInfo?.userId) {
+    router.push({ path: `/profile/${authStore.userInfo.userId}` })
   } else {
     router.push({ path: `/profile/${userId}` })
   }

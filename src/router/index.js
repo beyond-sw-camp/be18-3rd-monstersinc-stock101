@@ -37,13 +37,8 @@ const router = createRouter({
       props: true,
     },
     {
-      path: '/profile/me',
-      name: 'MyProfilePredictions',
-      component: ProfileView,
-    },
-    {
       path: '/profile/:id',
-      name: 'UserProfilePredictions',
+      name: 'UserProfile',
       component: ProfileView,
       props: true,
     },
