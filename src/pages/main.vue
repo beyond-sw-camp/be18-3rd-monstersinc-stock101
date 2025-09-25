@@ -219,7 +219,7 @@ onMounted(async () => {
           id: item.userId,
           imageUrl: item.imageUrl || '',
           name: item.name,
-          status: item.tierCode,
+          status: item.statusMessage || '', // Use statusMessage instead of tierCode
           tierCode: item.tierCode
         }))
       : fallbackNews.map((item) => ({ ...item }))
