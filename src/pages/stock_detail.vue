@@ -92,7 +92,7 @@
     <section class="sec">
       <Chart :ticker="tickerDisplay"/>
       <div class="cta-row">
-        <BaseButton class="cta neg" :disabled="!isLoggedIn" @click="prediction(false)">
+        <BaseButton class="cta neg" :class="{ 'cta-locked': !isLoggedIn }" @click="prediction(false)">
           <span class="cta-content">
             <span class="cta-icon" aria-hidden="true">▼</span>
             <span class="cta-text">
@@ -101,7 +101,7 @@
             </span>
           </span>
         </BaseButton>
-        <BaseButton class="cta pos" :disabled="!isLoggedIn" @click="prediction(true)">
+        <BaseButton class="cta pos" :class="{ 'cta-locked': !isLoggedIn }" @click="prediction(true)">
           <span class="cta-content">
             <span class="cta-icon" aria-hidden="true">▲</span>
             <span class="cta-text">
@@ -123,15 +123,12 @@
         <CommunityFeed :stockId="Number(stockId)" :embedded="true" />
       </div>
     </section>
-
   </section>
   </template>
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
-import { useAuthStore } from '@/stores/authStore'
 
 import BaseGrid from '@/components/grid/BaseGrid.vue'
 import MetricCard from '@/components/card/variants/MetricCard.vue'
@@ -140,11 +137,9 @@ import Pill from '@/components/ui/Pill.vue'
 import Chart from '@/components/chart/Chart.vue'
 import CommunityFeed from '@/views/CommunityFeedView.vue'
 
-const route = useRoute()
-const authStore = useAuthStore()
-const { userInfo, isLoggedIn } = storeToRefs(authStore)
-const accessToken = computed(() => userInfo.value.accessToken)
 
+const route = useRoute()
+const router = useRouter()
 const stockId = ref(route.params.stockId ?? '')
 const stockInfo = ref(null)
 const priceValue = ref(null)
@@ -152,6 +147,18 @@ const changeValue = ref(null)
 
 const tickerDisplay = computed(() => stockInfo.value?.stockCode ?? stockInfo.value?.symbol ?? stockInfo.value?.ticker ?? '—')
 const companyDisplay = computed(() => stockInfo.value?.name ?? '—')
+const readStoredToken = () => {
+  const raw = localStorage.getItem('AuthToken') ?? localStorage.getItem('authToken') ?? ''
+  const token = typeof raw === 'string' ? raw.trim() : ''
+  if (!token || token === 'null' || token === 'undefined') return ''
+  return token
+}
+
+const authToken = ref(readStoredToken())
+const syncToken = () => {
+  authToken.value = readStoredToken()
+}
+const isLoggedIn = computed(() => authToken.value.length > 0)
 
 const formatCurrency = (value) => {
   const num = Number(value)
@@ -266,7 +273,6 @@ const gaugeConfigs = computed(() => {
       title: '개미 지표',
       value: sentiment.value,
       size: 420,
-      updateText: '03:35 후에 갱신될 거예요',
       labelDistance: 50,
       thickness: 24,
       radius: '82%',
@@ -389,15 +395,17 @@ const getfinance = async(id) =>{
 }
 const buildPredictionPayload = (isBullish) => ({
   stockId: stockId.value,
+  userId: localStorage.getItem("userId"),
   ticker: tickerDisplay.value,
-  expectation: isBullish ? 'UP' : 'DOWN',
+  prediction: isBullish ? 'UP' : 'DOWN',
   // TODO: confidence, memo, userId 등을 서버 스펙에 맞게 채워주세요.
-  timestamp: new Date().toISOString()
+  predicted_at: new Date().toISOString()
 })
 
 const prediction = async (isBullish) => {
   if (!isLoggedIn.value) {
     alert('로그인 후 이용해 주세요.')
+    router.push({path: "/auth/login?type=login"})
     return
   }
   if (!stockId.value || !tickerDisplay.value || tickerDisplay.value === '—') {
@@ -408,9 +416,9 @@ const prediction = async (isBullish) => {
   const payload = buildPredictionPayload(isBullish)
 
   try {
-    await axios.post('/api/v1/prediction/create', payload, {
+    await axios.post('/api/v1/prediction/create', payload,{
       headers: {
-        Authorization: `Bearer ${accessToken.value}`
+        Authorization: `Bearer ${authToken.value}`
         // TODO: 필요 시 Content-Type 등 추가 헤더를 정의하세요.
       }
     })
@@ -423,10 +431,17 @@ const prediction = async (isBullish) => {
 }
 
 onMounted(() => {
+  syncToken()
+  window.addEventListener('storage', syncToken)
+
   loadprice()
   loadStock(stockId.value)
   getindicator(stockId.value)
   getfinance(stockId.value)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('storage', syncToken)
 })
 
 watch(
@@ -565,21 +580,25 @@ watch(
   border:none;
   background:transparent;
 }
-.cta[disabled]{ cursor:not-allowed; }
-.cta[disabled] .cta-content,
-.cta[disabled]:hover .cta-content{
-  filter:grayscale(0.35);
-  opacity:0.55;
-  box-shadow:none;
-  transform:none;
-}
-.cta[disabled] .cta-title,
-.cta[disabled] .cta-sub{
-  color:rgba(71,85,105,0.7);
-}
 .cta:focus-visible .cta-content{
   outline:3px solid rgba(59,130,246,0.45);
   outline-offset:3px;
+}
+.cta.cta-locked .cta-content{
+  filter:grayscale(0.25);
+  opacity:0.65;
+  box-shadow:none;
+}
+.cta.cta-locked:hover .cta-content{
+  transform:none;
+  box-shadow:none;
+}
+.cta.cta-locked .cta-icon{
+  opacity:0.75;
+}
+.cta.cta-locked .cta-title,
+.cta.cta-locked .cta-sub{
+  color:rgba(15,23,42,0.55);
 }
 .cta-content{
   position:relative;
