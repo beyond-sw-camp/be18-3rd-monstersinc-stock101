@@ -1,6 +1,6 @@
 <template>
   <div class="profile-page">
-    <button type="button" class="profile-page__back">← 돌아가기</button>
+    <BaseBackButton class="profile-page__back" @click="handleBack">돌아가기</BaseBackButton>
     <h1 class="profile-page__title">{{ pageTitle }}</h1>
 
     <ProfileStats :summary="summary" :active-filter="resultFilter" @filter-change="handleFilterChange" />
@@ -40,6 +40,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import BaseBackButton from '@/components/shared/BaseBackButton.vue'
 import ProfileHeader from '@/components/profile/ProfileHeader.vue'
 import ProfileStats from '@/components/profile/ProfileStats.vue'
 import ProfileTabs from '@/components/profile/ProfileTabs.vue'
@@ -240,6 +241,43 @@ const handleProfileUpdate = (updatedData) => {
   console.log('Profile updated locally:', updatedData)
 }
 
+<<<<<<< Updated upstream
+=======
+// Event handlers for CommunityPostCard interactions
+const handlePostSelect = (post) => {
+  console.log('Post selected:', post)
+  // Navigate to post detail if needed
+  router.push({ name: 'CommunityPostDetail', params: { postId: post.postId } })
+}
+
+const handlePostLike = (post) => {
+  console.log('Post liked:', post)
+  // Handle like functionality - could integrate with API in the future
+  const postIndex = profile.value.posts.findIndex(p => p.postId === post.postId)
+  if (postIndex !== -1) {
+    // Toggle like optimistically
+    const originalPost = profile.value.posts[postIndex]
+    originalPost.likes = post.likedByMe ? originalPost.likes - 1 : originalPost.likes + 1
+  }
+}
+
+const handlePostComment = (post) => {
+  console.log('Post comment clicked:', post)
+  // Navigate to post detail for commenting
+  router.push({ name: 'CommunityPostDetail', params: { postId: post.postId } })
+}
+
+const handleLoginRequired = () => {
+  console.log('Login required for post interaction')
+  // Could show a toast or redirect to login
+  alert('로그인이 필요합니다.')
+}
+
+const handleBack = () => {
+  router.back()
+}
+
+>>>>>>> Stashed changes
 onMounted(() => {
   console.log('ProfileView mounted, route:', route.path, route.params, 'userId:', userId.value)
   fetchPredictions(userId.value)
@@ -284,11 +322,6 @@ watch(
 
 .profile-page__back {
   align-self: flex-start;
-  font-size: 14px;
-  color: #6b7280;
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
 .profile-page__title {

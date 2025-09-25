@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <header class="app-shell__header">
+    <!-- <header class="app-shell__header">
       <h1 class="app-shell__brand">Stock101 Demo</h1>
       <nav class="app-shell__nav">
         <RouterLink to="/profile/me/predictions">내 프로필 (전체)</RouterLink>
@@ -11,7 +11,7 @@
         <RouterLink :to="{ name: 'userRegister' }">회원가입</RouterLink>
         <RouterLink :to="{ name: 'userLogin' }">로그인</RouterLink>
       </nav>
-    </header>
+    </header> -->
     <main class="app-shell__main">
       <RouterView />
     </main>

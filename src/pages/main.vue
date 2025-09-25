@@ -227,7 +227,13 @@ const newsCols = computed(() => {
 </script>
 
 <style scoped>
-.page { padding: 28px 20px 40px; display: grid; gap: 28px; }
+.page {
+  padding: 28px 40px 40px;
+  display: grid;
+  gap: 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
 /* Hero */
 .hero { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
