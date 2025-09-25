@@ -273,7 +273,6 @@ const gaugeConfigs = computed(() => {
       title: '개미 지표',
       value: sentiment.value,
       size: 420,
-      updateText: '03:35 후에 갱신될 거예요',
       labelDistance: 50,
       thickness: 24,
       radius: '82%',
