@@ -106,6 +106,9 @@ export default {
             wick: { useFillColor: true }
           }
         },
+        annotations: {
+          xaxis: []
+        },
         dataLabels: { enabled: false },
         stroke: { show: true, width: 1 },
         grid: {
@@ -226,6 +229,7 @@ export default {
         if (candles.length) {
           const trimmed = candles.slice(-this.maxPoints)
           this.series = [{ data: trimmed }]
+          this.applySessionShading(trimmed)
           return true
         }
       } catch (error) {
@@ -236,6 +240,55 @@ export default {
     seedDummyData() {
       const fallback = DUMMY_CANDLES.map((candle) => ({ ...candle }))
       this.series = [{ data: fallback }]
+      this.applySessionShading(fallback)
+    },
+    applySessionShading(points = []) {
+      const dataPoints = Array.isArray(points) ? points : []
+      if (!dataPoints.length) {
+        this.chartOptions = {
+          ...this.chartOptions,
+          annotations: { ...(this.chartOptions.annotations || {}), xaxis: [] }
+        }
+        return
+      }
+
+      const seen = new Set()
+      const zones = []
+
+      dataPoints.forEach((point) => {
+        const timestamp = Number(point?.x)
+        if (!Number.isFinite(timestamp)) return
+        const sessionStart = new Date(timestamp)
+        if (!Number.isFinite(sessionStart.getTime())) return
+        sessionStart.setHours(9, 0, 0, 0)
+        const key = sessionStart.getTime()
+        if (seen.has(key)) return
+        seen.add(key)
+
+        const sessionEnd = new Date(sessionStart)
+        sessionEnd.setHours(17, 0, 0, 0)
+        if (sessionEnd <= sessionStart) {
+          sessionEnd.setTime(sessionStart.getTime() + 8 * 60 * 60 * 1000)
+        }
+
+        zones.push({
+          x: sessionStart.getTime(),
+          x2: sessionEnd.getTime(),
+          fillColor: 'rgba(15, 23, 42, 0.08)',
+          opacity: 1,
+          borderColor: 'rgba(59, 130, 246, 0.12)'
+        })
+      })
+
+      zones.sort((a, b) => a.x - b.x)
+
+      this.chartOptions = {
+        ...this.chartOptions,
+        annotations: {
+          ...(this.chartOptions.annotations || {}),
+          xaxis: zones
+        }
+      }
     }
   }
 }
