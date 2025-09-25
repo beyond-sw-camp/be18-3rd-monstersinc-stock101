@@ -1,6 +1,6 @@
-﻿import { defineStore } from 'pinia'
-import { fetchPostDetail, fetchComments, createComment, toggleLike } from '@/services/communityApi'
 import { useSessionStore } from '@/stores/session'
+import axios from 'axios'
+import { defineStore } from 'pinia'
 
 function toDate(value) {
   return value ? new Date(value).getTime() : 0
@@ -72,13 +72,46 @@ export const useCommunityPostStore = defineStore('communityPost', {
     async load(postId) {
       this.isLoading = true
       try {
-        const sessionStore = useSessionStore()
-        const token = sessionStore.accessToken
-        const [{ items: postItems }, { items: commentItems }] = await Promise.all([
-          fetchPostDetail(postId, { token }),
-          fetchComments(postId, { token }),
+  const sessionStore = useSessionStore()
+  const { useAuthStore } = await import('@/stores/authStore')
+  const authStore = useAuthStore()
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+        const apiClient = axios.create({ baseURL: apiBaseUrl })
+  const headers = {}
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+        const [postResp, commentsResp] = await Promise.all([
+          apiClient.get(`/api/v1/board/posts/${postId}`, { headers }),
+          apiClient.get(`/api/v1/board/posts/${postId}/comments`, { headers }),
         ])
+        const postItems = Array.isArray(postResp.data?.items) ? postResp.data.items : []
+        const commentItems = Array.isArray(commentsResp.data?.items) ? commentsResp.data.items : []
         this.post = postItems?.[0] ?? null
+        this.comments = buildCommentTree(commentItems ?? [])
+        this.error = null
+      } catch (error) {
+        this.error = error
+      } finally {
+        this.isLoading = false
+      }
+    },
+    async loadComments(postId) {
+      this.isLoading = true
+      try {
+  const sessionStore = useSessionStore()
+  const { useAuthStore } = await import('@/stores/authStore')
+  const authStore = useAuthStore()
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+        const apiClient = axios.create({ baseURL: apiBaseUrl })
+  const headers = {}
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+        const commentsResp = await apiClient.get(`/api/v1/board/posts/${postId}/comments`, { headers })
+        const commentItems = Array.isArray(commentsResp.data?.items)
+          ? commentsResp.data.items
+          : Array.isArray(commentsResp.data)
+            ? commentsResp.data
+            : []
         this.comments = buildCommentTree(commentItems ?? [])
         this.error = null
       } catch (error) {
@@ -95,8 +128,20 @@ export const useCommunityPostStore = defineStore('communityPost', {
         authorTierCode: user?.tier,
         parentCommentId,
       }
-      const sessionStore = useSessionStore()
-      const { items } = await createComment(postId, payload, { token: sessionStore.accessToken })
+  const sessionStore = useSessionStore()
+  const { useAuthStore } = await import('@/stores/authStore')
+  const authStore = useAuthStore()
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+      const apiClient = axios.create({ baseURL: apiBaseUrl })
+  const headers = {}
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+      const { data } = await apiClient.post(`/api/v1/board/posts/${postId}/comments`, {
+        content: payload.content,
+        userId: payload.userId,
+        parentCommentId: payload.parentCommentId,
+      }, { headers })
+      const items = Array.isArray(data?.items) ? data.items : []
       const [createdRaw] = items ?? []
       if (!createdRaw) return null
       const created = normalizeComment({ ...createdRaw, replies: [] })
@@ -111,10 +156,20 @@ export const useCommunityPostStore = defineStore('communityPost', {
       }
 
       if (this.post) {
-        this.post.commentCount += 1
+        // If backend returned a totalCommentCount, use it to avoid double-counting
+        const returnedTotal = typeof createdRaw.totalCommentCount === 'number' ? createdRaw.totalCommentCount : null
+        if (returnedTotal !== null) {
+          this.post.commentCount = returnedTotal
+        } else {
+          this.post.commentCount += 1
+        }
       }
       return created
     },
+    hydrateFromResponse(postItems = [], commentItems = []) {
+            this.post = postItems?.[0] ?? null
+            this.comments = buildCommentTree(commentItems ?? [])
+          this.error = null},
     async toggleLike(postId) {
       if (!this.post || this.post.postId !== postId) return null
       const sessionStore = useSessionStore()
@@ -122,7 +177,13 @@ export const useCommunityPostStore = defineStore('communityPost', {
       this.post.likedByMe = !wasLiked
       this.post.likeCount += wasLiked ? -1 : 1
       try {
-        const { items } = await toggleLike(postId, { token: sessionStore.accessToken })
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+        const apiClient = axios.create({ baseURL: apiBaseUrl })
+  const headers = {}
+  const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
+  if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
+        const { data } = await apiClient.post(`/api/v1/board/posts/${postId}/like`, null, { headers })
+        const items = Array.isArray(data?.items) ? data.items : []
         const [result] = items ?? []
         if (result) {
           if (typeof result.likeCount === 'number') this.post.likeCount = result.likeCount
@@ -143,3 +204,6 @@ export const useCommunityPostStore = defineStore('communityPost', {
     },
   },
 })
+
+
+

@@ -2,7 +2,12 @@
   <article class="community-post-card" @click="handleSelect">
     <div class="community-post-card__top">
       <div class="community-post-card__profile">
-        <div class="community-post-card__avatar" aria-hidden="true"></div>
+        <template v-if="post.imageUrl">
+          <img :src="post.imageUrl" alt="avatar" class="community-post-card__avatar-img" />
+        </template>
+        <template v-else>
+          <div class="community-post-card__avatar" aria-hidden="true"></div>
+        </template>
         <div class="community-post-card__info">
           <div class="community-post-card__identity">
             <span class="community-post-card__badge" :class="badgeClass">{{ post.opinion }}</span>
@@ -26,14 +31,14 @@
       <button
         type="button"
         class="community-post-card__icon"
-        :class="{ 'community-post-card__icon--liked': post.likedByMe }"
-        @click="handleLike"
+        :class="{ 'community-post-card__icon--liked': isLiked }"
+        @click.stop="handleLike"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="22" height="22" viewBox="0 0 28 26" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
-            d="M12 21s-5.286-4.117-7.607-6.735C2.5 12.178 2 9.488 3.414 7.414 4.828 5.34 7.512 4.5 9.5 6.5l1.5 1.5 1.5-1.5c1.988-2 4.672-1.16 6.086.914 1.414 2.074.914 4.764-1.979 6.851C17.286 16.883 12 21 12 21z"
-            :fill="post.likedByMe ? '#f05665' : 'none'"
-            :stroke="post.likedByMe ? '#f05665' : '#6b7280'"
+            d="M14 23.25s-7.45-5.74-10.6-9.37c-3.15-3.63-2.63-8.6 1.1-11.01 2.68-1.73 6.05-.82 7.98 1.73 1.93-2.55 5.3-3.46 7.98-1.73 3.73 2.41 4.25 7.38 1.1 11.01-3.15 3.63-10.6 9.37-10.6 9.37z"
+            :fill="isLiked ? '#f05665' : 'none'"
+            :stroke="isLiked ? '#f05665' : '#6b7280'"
             stroke-width="1.6"
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -41,7 +46,7 @@
         </svg>
         <span>{{ post.likeCount }}</span>
       </button>
-      <button type="button" class="community-post-card__icon" @click="handleComment">
+  <button type="button" class="community-post-card__icon" @click.stop="handleComment">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M21 12c0 4.418-4.03 8-9 8-1.013 0-1.99-.154-2.905-.44L3 20l1.58-3.162C3.59 15.695 3 13.91 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
@@ -58,17 +63,21 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
+import { computed } from 'vue'
 
 const props = defineProps({
   post: {
     type: Object,
     required: true,
   },
+  isLoggedIn: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['select', 'like', 'comment'])
+const emit = defineEmits(['select', 'like', 'comment', 'login-required'])
 
 const badgeClass = computed(() => {
   if (props.post.opinion === 'Hold') return 'community-post-card__badge--neutral'
@@ -90,11 +99,23 @@ const formattedDate = computed(() => {
   })
 })
 
+// robust liked state computed from possible server field names/shapes
+const isLiked = computed(() => {
+  const p = props.post || {}
+  return !!(p.likedByMe ?? p.liked ?? p.isLiked ?? p.liked_by_me ?? p.likedByUser)
+})
+
 function handleSelect() {
   emit('select', props.post)
 }
 
-function handleLike() {
+function handleLike(event) {
+  // prevent the like button from propagating to the article click
+  event?.stopPropagation?.()
+  if (!props.isLoggedIn) {
+    emit('login-required')
+    return
+  }
   emit('like', props.post)
 }
 
@@ -141,6 +162,13 @@ function handleComment() {
   border-radius: 50%;
   background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
   flex-shrink: 0;
+}
+
+.community-post-card__avatar-img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .community-post-card__info {

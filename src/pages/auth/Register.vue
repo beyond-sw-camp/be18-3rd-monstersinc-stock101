@@ -46,7 +46,6 @@
                 <p class="switch">계정이 있다면 <router-link :to="{ name: 'userLogin' }" class="login-link">로그인</router-link>
                     해주세요</p>
 
-                <button ></button>
             </form>
         </div>
     </section>
@@ -93,7 +92,6 @@ async function submitRegister() {
             email: email.value,
             password: password.value,
         });
-
         // 회원가입 성공 시
         alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
         router.push({ name: 'userLogin' });
@@ -104,11 +102,10 @@ async function submitRegister() {
         if (error.response && error.response.status === 409) {
             // 409 Conflict: 이미 사용 중인 이메일
             serverErrorMessage.value = '이미 사용 중인 이메일입니다.';
-            console.error(error);
         } else {
             // 그 외 다른 에러
             serverErrorMessage.value = '회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-            console.error(error);
+            alert('회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
         }
     }
 };

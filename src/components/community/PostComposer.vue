@@ -4,16 +4,18 @@
       <h2 class="post-composer__title">지금 당신의 생각을 남겨보세요</h2>
     </header>
 
-    <OpinionSelector v-model="opinionProxy" :disabled="!isLoggedIn || disabled" />
+  <OpinionSelector v-model="opinionProxy" :disabled="!isLoggedIn || disabled" @login-required="$emit('login-required')" />
 
     <div class="post-composer__textarea-wrapper" :class="{ 'post-composer__textarea-wrapper--locked': !isLoggedIn }">
       <textarea
         ref="textareaRef"
         class="post-composer__textarea"
-        :placeholder="isLoggedIn ? '내용을 입력해주세요' : '로그인 후 이용해주세요'"
+        :placeholder="''"
         :value="content"
         :maxlength="maxLength"
         :readonly="disabled || !isLoggedIn"
+        @mousedown="handleLockedInteraction"
+        @focus="handleFocus"
         @input="handleInput"
       ></textarea>
     </div>
@@ -21,7 +23,7 @@
     <footer class="post-composer__footer">
       <span class="post-composer__counter">{{ content.length }}/{{ maxLength }}</span>
       <button type="button" class="post-composer__submit" :disabled="!canSubmit" @click="handleSubmit">
-        등록하기
+        Post
       </button>
     </footer>
   </section>
@@ -50,14 +52,14 @@ const props = defineProps({
   },
   isLoggedIn: {
     type: Boolean,
-    default: true,
+    default: false,
   },
 })
 
-const emit = defineEmits(['update:opinion', 'update:content', 'submit', 'exceed'])
+const emit = defineEmits(['update:opinion', 'update:content', 'submit', 'exceed', 'login-required'])
 
 const textareaRef = ref(null)
-
+let lastLoginEmit = 0
 const opinionProxy = computed({
   get: () => props.opinion,
   set: (value) => emit('update:opinion', value),
@@ -69,8 +71,30 @@ const canSubmit = computed(
   () => props.isLoggedIn && !props.disabled && props.opinion && props.content.trim().length > 0
 )
 
+function emitLoginRequired() {
+  const now = Date.now()
+  // prevent duplicate emits within a short window (e.g., mousedown + focus)
+  if (now - lastLoginEmit < 800) return
+  lastLoginEmit = now
+  emit('login-required')
+}
+
+function handleLockedInteraction() {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+  }
+}
+
+function handleFocus(event) {
+  if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
+    event?.target?.blur?.()
+  }
+}
+
 function handleInput(event) {
   if (!props.isLoggedIn || props.disabled) {
+    emitLoginRequired()
     event.target.value = props.content
     return
   }
@@ -88,6 +112,10 @@ function handleInput(event) {
 }
 
 function handleSubmit() {
+  if (!props.isLoggedIn) {
+    emitLoginRequired()
+    return
+  }
   if (!canSubmit.value) return
   emit('submit')
 }
@@ -115,13 +143,13 @@ function handleSubmit() {
   position: relative;
   border-radius: 20px;
   border: 1px solid #d1d5db;
-  background-color: #f9fafb;
+  background-color: #ffffff;
   overflow: hidden;
 }
 
 .post-composer__textarea-wrapper--locked {
-  background-color: #75748b;
-  border-color: #303047;
+  background-color: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .post-composer__textarea {
@@ -132,7 +160,7 @@ function handleSubmit() {
   background: transparent;
   font-size: 15px;
   line-height: 1.5;
-  color: #1f2937;
+  color: #c4d7e8;
   resize: vertical;
 }
 

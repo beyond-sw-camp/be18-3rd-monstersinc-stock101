@@ -115,9 +115,14 @@
         {{ isLoggedIn ? '[등록하면 주가를 이메일로 보내요]' : '로그인 후 이용 가능한 기능입니다.' }}
       </p>
     </section>
-    <CommunityFeed
-    :stockId = "stockId"
-    />
+
+    <!-- 커뮤니티 대화 -->
+    <section class="sec">
+      <h2 class="sec-title">{{ tickerDisplay }}의 커뮤니티 대화</h2>
+      <div class="community-wrapper">
+        <CommunityFeed :stockId="Number(stockId)" :embedded="true" />
+      </div>
+    </section>
   </section>
   </template>
 <script setup>
@@ -684,4 +689,22 @@ watch(
 .hint.disabled{ color:#ef4444; font-weight:600; }
 
 .op-list{ display:grid; gap:10px; }
+
+.community-wrapper {
+  background: #ffffff;
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 18px;
+  box-shadow: 0 10px 20px rgba(15,23,42,0.1);
+}
+
+.community-wrapper :deep(.community-feed) {
+  padding: 24px;
+  margin: 0;
+  max-width: none;
+}
+
+.community-wrapper :deep(.community-feed__back),
+.community-wrapper :deep(.community-feed__title) {
+  display: none;
+}
 </style>
