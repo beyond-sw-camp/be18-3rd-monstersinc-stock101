@@ -129,8 +129,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import axios from 'axios'
-import { useSessionStore } from '@/stores/session'
+import { useAuthStore } from '@/stores/authStore'
 
 import BaseGrid from '@/components/grid/BaseGrid.vue'
 import MetricCard from '@/components/card/variants/MetricCard.vue'
@@ -140,7 +141,9 @@ import Chart from '@/components/chart/Chart.vue'
 import CommunityFeed from '@/views/CommunityFeedView.vue'
 
 const route = useRoute()
-const sessionStore = useSessionStore()
+const authStore = useAuthStore()
+const { userInfo, isLoggedIn } = storeToRefs(authStore)
+const accessToken = computed(() => userInfo.value.accessToken)
 
 const stockId = ref(route.params.stockId ?? '')
 const stockInfo = ref(null)
@@ -149,7 +152,6 @@ const changeValue = ref(null)
 
 const tickerDisplay = computed(() => stockInfo.value?.stockCode ?? stockInfo.value?.symbol ?? stockInfo.value?.ticker ?? '—')
 const companyDisplay = computed(() => stockInfo.value?.name ?? '—')
-const isLoggedIn = computed(() => sessionStore.isLoggedIn)
 
 const formatCurrency = (value) => {
   const num = Number(value)
@@ -394,7 +396,6 @@ const buildPredictionPayload = (isBullish) => ({
 })
 
 const prediction = async (isBullish) => {
-  console.log(sessionStore)
   if (!isLoggedIn.value) {
     alert('로그인 후 이용해 주세요.')
     return
@@ -407,9 +408,9 @@ const prediction = async (isBullish) => {
   const payload = buildPredictionPayload(isBullish)
 
   try {
-    await axios.post('/api/v1/prediction/create', payload,{
+    await axios.post('/api/v1/prediction/create', payload, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`
+        Authorization: `Bearer ${accessToken.value}`
         // TODO: 필요 시 Content-Type 등 추가 헤더를 정의하세요.
       }
     })
