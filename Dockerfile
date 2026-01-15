@@ -4,6 +4,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# 내부 API URL (내부 Docker 네트워크에서 접)
+ARG VITE_API_BASE_URL=http://stock-backend:8080
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # 2. 배포 단계
