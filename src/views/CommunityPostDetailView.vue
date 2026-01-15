@@ -98,6 +98,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import { getTierBadgeSrc } from '@/utils/tierBadge'
+import { getApiUrl, API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -122,8 +123,6 @@ const composerRef = ref(null)
 // Consider user logged in only when an access token exists
 // Prefer authStore token (set by login) and fall back to sessionStore
 const isLoggedIn = computed(() => !!(authStore.userInfo?.accessToken ?? sessionStore.accessToken))
-
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
 function toDate(value) {
   return value ? new Date(value).getTime() : 0
@@ -216,10 +215,9 @@ async function loadPostData(postId) {
   // Prefer authStore token (populated by login); fallback to sessionStore. Avoid sending demo token.
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
-    const base = apiBaseUrl ? `${apiBaseUrl}/api/v1/board/posts` : '/api/v1/board/posts'
     const [postResp, commentsResp] = await Promise.all([
-      axios.get(`${base}/${postId}`, { headers }),
-      axios.get(`${base}/${postId}/comments`, { headers }),
+      axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_BY_ID(postId)), { headers }),
+      axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_COMMENTS(postId)), { headers }),
     ])
     const postItems = Array.isArray(postResp.data?.items)
       ? postResp.data.items
@@ -246,13 +244,12 @@ async function loadPostData(postId) {
     }
     // If initial request failed (often because demo token caused server error), retry without auth headers
     try {
-      const base = apiBaseUrl ? `${apiBaseUrl}/api/v1/board/posts` : '/api/v1/board/posts'
-      const { data } = await axios.get(`${base}/${postId}`)
+      const { data } = await axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_BY_ID(postId)))
       const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []
       post.value = items?.[0] ?? null
       // try to fetch comments without auth as well
       try {
-        const commentsResp = await axios.get(`${base}/${postId}/comments`)
+        const commentsResp = await axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_COMMENTS(postId)))
         const commentItems = Array.isArray(commentsResp.data?.items)
           ? commentsResp.data.items
           : Array.isArray(commentsResp.data)

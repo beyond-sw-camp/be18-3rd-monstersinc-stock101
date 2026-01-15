@@ -35,6 +35,7 @@ import PostComposer from '@/components/community/PostComposer.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
+import { getApiUrl, API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -104,12 +105,11 @@ async function loadFeed() {
   try {
     const params = {}
     if (effectiveStockId != null) params.stockId = effectiveStockId
-    const base = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api/v1/board/posts` : '/api/v1/board/posts'
-    console.debug('[CommunityFeedView] requesting posts', { url: base, params })
+    console.debug('[CommunityFeedView] requesting posts', { params })
   const headers = {}
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
-  const { data } = await axios.get(base, { params, timeout: 8000, headers })
+  const { data } = await axios.get(getApiUrl(API_ENDPOINTS.BOARD_POSTS), { params, timeout: 8000, headers })
     const items = Array.isArray(data?.items)
       ? data.items
       : Array.isArray(data?.data)

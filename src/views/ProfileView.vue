@@ -57,6 +57,7 @@ import PredictionSummaryCard from '@/components/predictions/PredictionSummaryCar
 import CommunityPostCard from '@/components/community/CommunityPostCard.vue'
 import { getUserPredictions, getUserPredictionsById, transformPredictionData } from '@/services/predictionApi'
 import { myProfile, otherProfile, calculatePredictionSummary } from '@/data/profileDemo'
+import { getApiUrl, API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
 
 const route = useRoute()
@@ -210,7 +211,7 @@ const fetchUserInfo = async (targetUserId) => {
   try {
     // Always fetch user info from API using the actual user ID
     console.log('Fetching user info from API for user:', targetUserId)
-    const response = await axios.get(`http://localhost:8080/api/v1/users/${targetUserId}`)
+    const response = await axios.get(getApiUrl(API_ENDPOINTS.USER_BY_ID(targetUserId)))
     const userData = response.data.items[0]
     profile.value.user = {
       id: userData.userId,
@@ -238,7 +239,7 @@ const fetchUserPosts = async (targetUserId) => {
       headers.Authorization = `Bearer ${token}`
     }
 
-    const response = await axios.get(`http://localhost:8080/api/v1/board/user/${targetUserId}`, { headers })
+    const response = await axios.get(getApiUrl(API_ENDPOINTS.BOARD_USER_POSTS(targetUserId)), { headers })
     const items = Array.isArray(response.data?.items)
       ? response.data.items
       : Array.isArray(response.data?.data)
@@ -264,7 +265,7 @@ const fetchPredictions = async (targetUserId) => {
 
    // Fetch predictions using direct axios call (for other users or unauthenticated)
     console.log('Fetching predictions for user:', targetUserId)
-    response = await axios.get(`http://localhost:8080/api/v1/prediction/user/${targetUserId}`)
+    response = await axios.get(getApiUrl(API_ENDPOINTS.USER_PREDICTIONS(targetUserId)))
 
     const transformedPredictions = transformPredictionData(response.data || response)
     profile.value.predictions = transformedPredictions

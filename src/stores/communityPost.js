@@ -1,4 +1,5 @@
 import { useSessionStore } from '@/stores/session'
+import { getApiUrl, API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
 import { defineStore } from 'pinia'
 
@@ -76,13 +77,12 @@ export const useCommunityPostStore = defineStore('communityPost', {
   const { useAuthStore } = await import('@/stores/authStore')
   const authStore = useAuthStore()
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-        const apiClient = axios.create({ baseURL: apiBaseUrl })
+        const apiClient = axios.create({ baseURL: '' })
   const headers = {}
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
         const [postResp, commentsResp] = await Promise.all([
-          apiClient.get(`/api/v1/board/posts/${postId}`, { headers }),
-          apiClient.get(`/api/v1/board/posts/${postId}/comments`, { headers }),
+          axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_BY_ID(postId)), { headers }),
+          axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_COMMENTS(postId)), { headers }),
         ])
         const postItems = Array.isArray(postResp.data?.items) ? postResp.data.items : []
         const commentItems = Array.isArray(commentsResp.data?.items) ? commentsResp.data.items : []
@@ -101,12 +101,11 @@ export const useCommunityPostStore = defineStore('communityPost', {
   const sessionStore = useSessionStore()
   const { useAuthStore } = await import('@/stores/authStore')
   const authStore = useAuthStore()
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-        const apiClient = axios.create({ baseURL: apiBaseUrl })
+        const apiClient = axios.create({ baseURL: '' })
   const headers = {}
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
-        const commentsResp = await apiClient.get(`/api/v1/board/posts/${postId}/comments`, { headers })
+        const commentsResp = await axios.get(getApiUrl(API_ENDPOINTS.BOARD_POST_COMMENTS(postId)), { headers })
         const commentItems = Array.isArray(commentsResp.data?.items)
           ? commentsResp.data.items
           : Array.isArray(commentsResp.data)
@@ -131,12 +130,11 @@ export const useCommunityPostStore = defineStore('communityPost', {
   const sessionStore = useSessionStore()
   const { useAuthStore } = await import('@/stores/authStore')
   const authStore = useAuthStore()
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-      const apiClient = axios.create({ baseURL: apiBaseUrl })
+      const apiClient = axios.create({ baseURL: '' })
   const headers = {}
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
-      const { data } = await apiClient.post(`/api/v1/board/posts/${postId}/comments`, {
+      const { data } = await axios.post(getApiUrl(API_ENDPOINTS.BOARD_POST_COMMENTS(postId)), {
         content: payload.content,
         userId: payload.userId,
         parentCommentId: payload.parentCommentId,
@@ -177,12 +175,11 @@ export const useCommunityPostStore = defineStore('communityPost', {
       this.post.likedByMe = !wasLiked
       this.post.likeCount += wasLiked ? -1 : 1
       try {
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-        const apiClient = axios.create({ baseURL: apiBaseUrl })
+        const apiClient = axios.create({ baseURL: '' })
   const headers = {}
   const token = authStore.userInfo?.accessToken ?? sessionStore.accessToken
   if (token && token !== 'demo-access-token') headers.Authorization = `Bearer ${token}`
-        const { data } = await apiClient.post(`/api/v1/board/posts/${postId}/like`, null, { headers })
+        const { data } = await axios.post(getApiUrl(API_ENDPOINTS.BOARD_POST_LIKE(postId)), null, { headers })
         const items = Array.isArray(data?.items) ? data.items : []
         const [result] = items ?? []
         if (result) {
