@@ -4,8 +4,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-# 내부 API URL (내부 Docker 네트워크에서 접)
-ARG VITE_API_BASE_URL=http://stock-backend:8080
+# 브라우저에서 상대 경로로 API 호출 (Nginx Proxy Manager가 /api를 백엔드로 라우팅)
+ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
